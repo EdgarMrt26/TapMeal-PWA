@@ -96,7 +96,7 @@ const FacturaPedido = ({ show, onHide, pedidoId }) => {
                   <td>${subtotal.toFixed(2)}</td>
                 </tr>
                 <tr>
-                  <td colSpan="3" className="text-end"><strong>IVA 16%:</strong></td>
+                  <td colSpan="3" className="text-end"><strong>IVA 15%:</strong></td>
                   <td>${iva.toFixed(2)}</td>
                 </tr>
                 <tr>
