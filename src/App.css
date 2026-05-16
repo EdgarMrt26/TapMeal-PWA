@@ -1,0 +1,139 @@
+.sidebar-custom {
+  width: 260px !important;
+  background-color: #0c0c2c !important;
+  color: white !important;
+  border-right: 1px solid rgba(255,255,255,0.1) !important;
+}
+
+/* Header */
+.sidebar-header {
+  padding: 30px 20px 15px !important;
+  text-align: center;
+}
+
+.sidebar-header h5 {
+  color: #ff6a00 !important;
+  font-size: 1.7rem !important;
+  font-weight: bold !important;
+  margin-bottom: 6px !important;
+}
+
+.sidebar-header small {
+  color: #aaaaaa !important;
+}
+
+.sidebar-divider {
+  border-color: rgba(255,255,255,0.25) !important;
+  margin: 10px 15px !important;
+}
+
+/* Menú */
+.menu-sidebar .nav-link {
+  color: white !important;
+  padding: 14px 20px !important;
+  margin: 5px 12px !important;
+  border-radius: 8px !important;
+}
+
+.menu-sidebar .nav-link:hover {
+  background-color: #1a1a4a !important;
+}
+
+.menu-sidebar .nav-link.active {
+  background-color: #ff6a00 !important;
+  color: white !important;
+}
+
+/* Botón Cerrar Sesión */
+.btn-cerrar-sesion {
+  background-color: #dc3545 !important;
+  color: white !important;
+  border: none !important;
+  margin: 0px 0px 12px !important;
+  padding: 12px !important;
+}
+
+.margen-superior-main {
+  position: relative !important; 
+  z-index: 1 !important;         
+  background-color: #f0f2f5 !important;
+  min-height: 100vh !important;
+  padding: 30px 25px !important;
+}
+
+
+@media (min-width: 992px) {
+  .sidebar-custom {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    height: 100vh !important;
+    transform: none !important;
+    visibility: visible !important;
+    z-index: 100 !important;
+  }
+
+  .margen-superior-main {
+    margin-left: 260px !important;
+    margin-top: 0 !important;
+  }
+
+  .color-navbar {
+    display: none !important;
+  }
+}
+
+
+.color-navbar {
+  background-color: #0c0c2c !important;
+}
+
+.tarjeta-categoria-contenedor {
+  position: relative;
+  overflow: hidden;
+}
+
+.tarjeta-categoria-cuerpo {
+  transition: opacity 150ms ease;
+}
+
+.tarjeta-categoria-cuerpo-activo {
+  opacity: 1;
+}
+
+.tarjeta-categoria-placeholder-imagen {
+  height: 50px;
+  width: 50px;
+}
+
+.tarjea-categoria-capa {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 8px;
+}
+
+.tarjeta-categoria-botones-capa {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 8px;
+  padding: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #voucher-content, #voucher-content * {
+    visibility: visible;
+  }
+  #voucher-content {
+    width: 80mm;
+    margin: 0;
+    font-size: 12px;
+  }
+}
