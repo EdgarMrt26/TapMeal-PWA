@@ -125,9 +125,11 @@
 }
 
 @media print {
+  
   body * {
     visibility: hidden;
   }
+  
   #voucher-content, #voucher-content * {
     visibility: visible;
   }
@@ -135,5 +137,47 @@
     width: 80mm;
     margin: 0;
     font-size: 12px;
+    page-break-after: avoid;
+    page-break-inside: avoid;
+  }
+
+  #factura-content, #factura-content * {
+    visibility: visible;
+  }
+  #factura-content {
+    width: auto;
+    max-width: 100%;
+    margin: 0;
+    padding: 1rem;
+    font-size: 12pt;
+    page-break-after: avoid;
+    page-break-inside: avoid;
+  }
+  
+  .modal-backdrop,
+  .modal-header,
+  .modal-footer {
+    display: none !important;
+  }
+  
+  .modal-dialog,
+  .modal-content {
+    display: block !important;
+    position: static !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  body, html {
+    margin: 0;
+    padding: 0;
+    background: white;
+  }
+
+  table, tr, td, th {
+    page-break-inside: avoid;
   }
 }
