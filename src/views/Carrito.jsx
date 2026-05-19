@@ -54,32 +54,39 @@ const Carrito = () => {
         return;
       }
 
-      // Obtener id_cliente más reciente
-      const { data: clienteData } = await supabase
-        .from("Clientes")
-        .select("id_cliente")
-        .order("id_cliente", { ascending: false })
+      // Obtener id_cliente desde user_metadata del usuario logueado
+      const idCliente = session.user?.user_metadata?.id_cliente || null;
+
+      // ✅ Buscar id_tipo_pago en la nueva tabla Tipo_pago (Efectivo / Tarjeta)
+      const { data: tipoPagoData } = await supabase
+        .from("Tipo_pago")
+        .select("id_tipo_pago")
+        .ilike("descripcion", `%${tipoPago}%`)
         .limit(1);
 
-      const idCliente = clienteData?.[0]?.id_cliente || null;
+      const idTipoPago = tipoPagoData?.[0]?.id_tipo_pago || null;
 
-      // Obtener tipo de pedido según pago seleccionado
+      // Mantener id_tipo de Tipo_pedido (En local / En línea) — primer registro por defecto
       const { data: tipoPedidoData } = await supabase
         .from("Tipo_pedido")
         .select("id_tipo")
-        .ilike("descripcion", `%${tipoPago}%`)
         .limit(1);
 
       const idTipo = tipoPedidoData?.[0]?.id_tipo || null;
 
-      // Insertar en Pedido
+      // ---- NUEVO: leer mesa desde localStorage ----
+      const idMesa = localStorage.getItem("mesa_actual");
+      const idMesaFinal = idMesa ? parseInt(idMesa, 10) : null;
+
+      // Insertar en Pedido con id_mesa dinámico
       const { data: pedidoData, error: errorPedido } = await supabase
         .from("Pedido")
         .insert([{
           fecha: new Date().toISOString(),
           id_cliente: idCliente,
           id_tipo: idTipo,
-          id_mesa: null,
+          id_tipo_pago: idTipoPago,
+          id_mesa: idMesaFinal,   // ← NUEVO (antes era null)
           estado: "Pendiente",
           total: parseFloat(totalCarrito.toFixed(2)),
         }])
@@ -89,7 +96,7 @@ const Carrito = () => {
 
       const idPedido = pedidoData[0].id_pedido;
 
-      // Insertar en Detalle_pedido — con id_extra e id_salsa por separado
+      // Insertar en Detalle_pedido
       const detalles = carrito.map(item => ({
         id_pedido: idPedido,
         id_platillo: item.id_platillo,
@@ -105,8 +112,11 @@ const Carrito = () => {
 
       if (errorDetalle) throw errorDetalle;
 
+      // Limpiar mesa después de usarla (opcional)
+      localStorage.removeItem("mesa_actual");   // ← NUEVO
+
       limpiarCarrito();
-      navegar("/pedidos");
+      navegar("/pedidosCliente");
 
     } catch (err) {
       console.error("Error al procesar pedido:", err);

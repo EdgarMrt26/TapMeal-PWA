@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom"; // ← NUEVO useSearchParams
 import FormularioLogin from "../components/login/FormularioLogin";
 import { supabase } from "../database/supabaseconfig";
 import Logo from "../assets/Logo.png";
@@ -9,16 +9,22 @@ const Login = () => {
   const [contrasena, setContrasena] = useState("");
   const [error, setError] = useState(null);
   const navegar = useNavigate();
+  const [searchParams] = useSearchParams(); // ← NUEVO
 
   const redirigirSegunRol = (rol) => {
-  if (rol === "admin") {
-    navegar("/categorias");
-  } else if (rol === "cliente") {
-    navegar("/menu"); 
-  } else {
-    navegar("/menu");
-  }
-};
+    const destino = searchParams.get("redirect"); // ← NUEVO
+    if (rol === "admin") {
+      navegar("/categorias");
+    } else if (rol === "cliente") {
+      if (destino) {             // ← NUEVO
+        navegar(destino);        // ← NUEVO
+      } else {
+        navegar("/menu");
+      }
+    } else {
+      navegar("/menu");
+    }
+  };
 
   const iniciarSesion = async () => {
     setError(null);

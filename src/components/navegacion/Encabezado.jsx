@@ -6,7 +6,7 @@ import Logo from "../../assets/Logo.png";
 
 const RUTAS_PUBLICAS = ["/", "/login", "/registro"];
 
-const RUTAS_CLIENTE = ["/menu", "/pedidosCliente", "/carrito", "/historial", "/cuenta"];
+const RUTAS_CLIENTE = ["/menu", "/pedidosCliente", "/carrito", "/cuenta"];
 
 // Links para cliente logueado (todos)
 const navLinksCliente = [
@@ -14,7 +14,6 @@ const navLinksCliente = [
   { label: "Menú",      ruta: "/menu",      icon: "bi-egg-fried" },
   { label: "Pedidos",   ruta: "/pedidosCliente",   icon: "bi-receipt" },
   { label: "Carrito",   ruta: "/carrito",   icon: "bi-cart3" },
-  { label: "Historial", ruta: "/historial", icon: "bi-clock-history" },
   { label: "Cuenta",    ruta: "/cuenta",    icon: "bi-person-circle" },
 ];
 
@@ -383,12 +382,14 @@ const ContenidoSidebarAdmin = ({ activo, manejarNavegacion, cerrarSesion }) => (
     <hr className="sidebar-divider" />
     <Nav className="flex-column menu-sidebar">
       <Nav.Link onClick={() => manejarNavegacion("/productos")}  className={activo("/productos")}>Platillos</Nav.Link>
+      <Nav.Link onClick={() => manejarNavegacion("/menu-admin")} className={activo("/menu-admin")}>Ver Menú</Nav.Link>
       <Nav.Link onClick={() => manejarNavegacion("/categorias")} className={activo("/categorias")}>Categorías</Nav.Link>
       <Nav.Link onClick={() => manejarNavegacion("/clientes")}   className={activo("/clientes")}>Clientes</Nav.Link>
       <Nav.Link onClick={() => manejarNavegacion("/pedidos")}    className={activo("/pedidos")}>Pedidos</Nav.Link>
       <Nav.Link onClick={() => manejarNavegacion("/mesas")}      className={activo("/mesas")}>Mesas</Nav.Link>
       <Nav.Link onClick={() => manejarNavegacion("/extras")}     className={activo("/extras")}>Extras</Nav.Link>
       <Nav.Link onClick={() => manejarNavegacion("/salsas")}     className={activo("/salsas")}>Salsas</Nav.Link>
+      
     </Nav>
     <div className="mt-auto p-3">
       <button className="btn btn-cerrar-sesion w-100" onClick={cerrarSesion}>

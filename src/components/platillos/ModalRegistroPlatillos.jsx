@@ -21,43 +21,38 @@ const ModalRegistroPlatillos = ({
 
   // Validación en tiempo real
   useEffect(() => {
-    const nuevosErrores = { ...errores };
+    const nuevosErrores = {
+      categoria_platillo: "",
+      nombre_platillo: "",
+      precio: "",
+      imagen: ""
+    };
 
     // Categoría
     if (!nuevoPlatillo.categoria_platillo) {
       nuevosErrores.categoria_platillo = "Debes seleccionar una categoría";
-    } else {
-      nuevosErrores.categoria_platillo = "";
     }
 
-    // Nombre del platillo: solo letras y espacios
+    // Nombre
     const nombre = nuevoPlatillo.nombre_platillo?.trim() || "";
     if (!nombre) {
       nuevosErrores.nombre_platillo = "El nombre del platillo es obligatorio";
     } else if (nombre.length < 3) {
       nuevosErrores.nombre_platillo = "El nombre debe tener al menos 3 caracteres";
-    } else if (!/^[a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+$/.test(nombre)) {
-      nuevosErrores.nombre_platillo = "Solo se permiten letras y espacios";
-    } else {
-      nuevosErrores.nombre_platillo = "";
+    } else if (!/^[a-zA-ZáéíóúñÁÉÍÓÚÑ0-9\s]+$/.test(nombre)) {
+      nuevosErrores.nombre_platillo = "Solo se permiten letras, números y espacios";
     }
 
     // Precio
-    const precio = parseFloat(nuevoPlatillo.precio);
+    const precio = nuevoPlatillo.precio ? parseFloat(nuevoPlatillo.precio) : NaN;
     if (!nuevoPlatillo.precio || isNaN(precio)) {
       nuevosErrores.precio = "El precio es obligatorio";
     } else if (precio <= 0) {
       nuevosErrores.precio = "El precio debe ser mayor a 0";
-    } else {
-      nuevosErrores.precio = "";
     }
 
-    // Imagen
-    if (!nuevoPlatillo.imagen) {
-      nuevosErrores.imagen = "Debes seleccionar una imagen";
-    } else {
-      nuevosErrores.imagen = "";
-    }
+    // Imagen (desactivada temporalmente)
+    nuevosErrores.imagen = "";
 
     setErrores(nuevosErrores);
   }, [nuevoPlatillo]);
@@ -76,8 +71,7 @@ const ModalRegistroPlatillos = ({
   const formularioValido = 
     !errores.categoria_platillo &&
     !errores.nombre_platillo &&
-    !errores.precio &&
-    !errores.imagen;
+    !errores.precio;
 
   return (
     <Modal
@@ -99,7 +93,7 @@ const ModalRegistroPlatillos = ({
                 <Form.Label>Categoría <span className="text-danger">*</span></Form.Label>
                 <Form.Select
                   name="categoria_platillo"
-                  value={nuevoPlatillo.categoria_platillo || ""}
+                  value={nuevoPlatillo.categoria_platillo || ""}   
                   onChange={manejoCambioInput}
                   isInvalid={!!errores.categoria_platillo}
                 >
@@ -127,7 +121,7 @@ const ModalRegistroPlatillos = ({
                   placeholder="Ej: Hamburguesa Clásica"
                   isInvalid={!!errores.nombre_platillo}
                   onKeyPress={(e) => {
-                    if (!/[a-zA-ZáéíóúñÁÉÍÓÚÑ\s]/.test(e.key)) {
+                    if (!/[a-zA-ZáéíóúñÁÉÍÓÚÑ0-9\s]/.test(e.key)) {
                       e.preventDefault();
                     }
                   }}
@@ -164,11 +158,7 @@ const ModalRegistroPlatillos = ({
                   type="file"
                   accept="image/*"
                   onChange={manejoCambioArchivo}
-                  isInvalid={!!errores.imagen}
                 />
-                <Form.Control.Feedback type="invalid">
-                  {errores.imagen}
-                </Form.Control.Feedback>
               </Form.Group>
             </Col>
 

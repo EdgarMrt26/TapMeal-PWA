@@ -70,6 +70,7 @@ const FacturaPedido = ({ show, onHide, pedidoId }) => {
         ) : (
           <div id="factura-content" style={{ border: "1px solid red", padding: "10px" }}>
             <div className="text-center mb-4">
+              <h4>It’sCoffeeTime</h4>
               <h4>TapMeal - Factura Electrónica</h4>
               <p>
                 <strong>Pedido N°:</strong> {factura?.id_pedido}<br />

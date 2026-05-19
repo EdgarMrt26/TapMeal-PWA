@@ -9,6 +9,11 @@ import Login from "./views/Login";
 import RegistroCliente from "./views/RegistroCliente";
 import Menu from "./views/Menu";
 import Carrito from "./views/Carrito";
+import PedidosCliente from "./views/PedidosCliente";
+
+// NUEVAS VISTAS
+import Escanear from "./views/Escanear";
+import PaginaMesa from "./views/PaginaMesa";
 
 // Vistas admin
 import Categorias from "./views/Categorias";
@@ -18,6 +23,7 @@ import Mesas from "./views/Mesas";
 import Pedidos from "./views/Pedidos";
 import Extras from "./views/Extras";
 import Salsas from "./views/Salsas";
+import MenuAdmin from "./views/MenuAdmin";
 
 import RutaProtegida from "./components/rutas/RutaProtegida";
 import Pagina404 from "./views/Pagina404";
@@ -45,6 +51,13 @@ const AppContenido = () => {
           <Route path="/menu"     element={<Menu />} />
           <Route path="/carrito"  element={<Carrito />} />
 
+          {/* Ruta para clientes (historial de pedidos) */}
+          <Route path="/pedidosCliente" element={<PedidosCliente />} />
+
+          {/* NUEVAS RUTAS */}
+          <Route path="/escanear"    element={<Escanear />} />
+          <Route path="/mesa/:id_mesa" element={<PaginaMesa />} />
+
           {/* Rutas del Admin */}
           <Route path="/categorias" element={<RutaProtegida rolRequerido="admin"><Categorias /></RutaProtegida>} />
           <Route path="/productos"  element={<RutaProtegida rolRequerido="admin"><Productos /></RutaProtegida>} />
@@ -53,6 +66,7 @@ const AppContenido = () => {
           <Route path="/pedidos"    element={<RutaProtegida rolRequerido="admin"><Pedidos /></RutaProtegida>} />
           <Route path="/extras"     element={<RutaProtegida rolRequerido="admin"><Extras /></RutaProtegida>} />
           <Route path="/salsas"     element={<RutaProtegida rolRequerido="admin"><Salsas /></RutaProtegida>} />
+          <Route path="/menu-admin" element={<RutaProtegida rolRequerido="admin"><MenuAdmin /></RutaProtegida>} />
 
           <Route path="*" element={<Pagina404 />} />
 

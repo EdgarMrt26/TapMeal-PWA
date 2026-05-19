@@ -3,6 +3,14 @@
   background-color: #0c0c2c !important;
   color: white !important;
   border-right: 1px solid rgba(255,255,255,0.1) !important;
+
+  display: flex !important;
+  flex-direction: column !important;
+  overflow-y: auto !important;
+}
+
+.menu-sidebar {
+  flex: 1 !important;
 }
 
 /* Header */

@@ -134,7 +134,10 @@ export default function Inicio() {
           <button className="btn-outline-dark-custom" onClick={() => navegar("/menu")}>
             <i className="bi bi-phone" /> Ver Menú
           </button>
-          <button className="btn-outline-orange-custom">
+          <button
+            className="btn-outline-orange-custom"
+            onClick={() => navegar("/escanear")}   // ← NUEVO
+          >
             <i className="bi bi-qr-code-scan" /> Escanear Mesa
           </button>
         </div>

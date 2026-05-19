@@ -46,7 +46,7 @@ const RegistroCliente = () => {
     try {
       setCargando(true);
 
-      // 1. Crear usuario en Supabase Auth con rol "cliente"
+      // 1. Crear usuario en Supabase Auth con rol "cliente" (sin id_cliente aún)
       const { data, error: errorAuth } = await supabase.auth.signUp({
         email: form.correo.trim(),
         password: form.contrasena,
@@ -64,19 +64,31 @@ const RegistroCliente = () => {
         return;
       }
 
-      // 2. Insertar en tabla Clientes
-      const { error: errorCliente } = await supabase.from("Clientes").insert([{
-        nombre_cliente: form.nombre.trim(),
-        apellido_cliente: form.apellido.trim(),
-        telefono: form.telefono.trim() || null,
-        direccion: form.direccion.trim() || null,
-      }]);
+      // 2. Insertar en tabla Clientes y obtener el id_cliente generado
+      const { data: nuevoCliente, error: errorCliente } = await supabase
+        .from("Clientes")
+        .insert([{
+          nombre_cliente: form.nombre.trim(),
+          apellido_cliente: form.apellido.trim(),
+          telefono: form.telefono.trim() || null,
+          direccion: form.direccion.trim() || null,
+        }])
+        .select()
+        .single();
 
       if (errorCliente) {
         console.error("Error al guardar en tabla Clientes:", errorCliente.message);
+        setError("Error al completar el registro. Contacta al soporte.");
+        return;
       }
 
-      // 3. ✅ Redirigir a /menu (no a /menu-cliente)
+      // 3. Actualizar los metadatos del usuario con el id_cliente recién creado
+      const idCliente = nuevoCliente.id_cliente;
+      await supabase.auth.updateUser({
+        data: { rol: "cliente", id_cliente: idCliente }
+      });
+
+      // 4. Redirigir al menú (como estaba originalmente)
       localStorage.setItem("usuario-supabase", form.correo.trim());
       navegar("/menu");
 
