@@ -20,6 +20,8 @@ const Carrito = () => {
   const [todosExtras, setTodosExtras] = useState([]);
   const [todasSalsas, setTodasSalsas] = useState([]);
   const [itemExpandido, setItemExpandido] = useState(null);
+  // ✅ Leer mesa del localStorage para mostrarla en el resumen
+  const [mesaNombre] = useState(() => localStorage.getItem("mesa_nombre") || null);
   const navegar = useNavigate();
 
   useEffect(() => {
@@ -57,16 +59,21 @@ const Carrito = () => {
       // Obtener id_cliente desde user_metadata del usuario logueado
       const idCliente = session.user?.user_metadata?.id_cliente || null;
 
-      // ✅ Buscar id_tipo_pago en la nueva tabla Tipo_pago (Efectivo / Tarjeta)
+      // ✅ Leer id_mesa guardado en localStorage al escanear el QR
+      const idMesa = localStorage.getItem("mesa_actual")
+        ? parseInt(localStorage.getItem("mesa_actual"))
+        : null;
+
+      // Buscar id_tipo_pago en tabla tipo_pago (minúscula)
       const { data: tipoPagoData } = await supabase
-        .from("Tipo_pago")
+        .from("tipo_pago")
         .select("id_tipo_pago")
         .ilike("descripcion", `%${tipoPago}%`)
         .limit(1);
 
       const idTipoPago = tipoPagoData?.[0]?.id_tipo_pago || null;
 
-      // Mantener id_tipo de Tipo_pedido (En local / En línea) — primer registro por defecto
+      // Mantener id_tipo de Tipo_pedido — primer registro por defecto
       const { data: tipoPedidoData } = await supabase
         .from("Tipo_pedido")
         .select("id_tipo")
@@ -74,11 +81,7 @@ const Carrito = () => {
 
       const idTipo = tipoPedidoData?.[0]?.id_tipo || null;
 
-      // ---- NUEVO: leer mesa desde localStorage ----
-      const idMesa = localStorage.getItem("mesa_actual");
-      const idMesaFinal = idMesa ? parseInt(idMesa, 10) : null;
-
-      // Insertar en Pedido con id_mesa dinámico
+      // Insertar en Pedido con id_mesa e id_tipo_pago
       const { data: pedidoData, error: errorPedido } = await supabase
         .from("Pedido")
         .insert([{
@@ -86,7 +89,7 @@ const Carrito = () => {
           id_cliente: idCliente,
           id_tipo: idTipo,
           id_tipo_pago: idTipoPago,
-          id_mesa: idMesaFinal,   // ← NUEVO (antes era null)
+          id_mesa: idMesa,   // ✅ Se asigna la mesa escaneada
           estado: "Pendiente",
           total: parseFloat(totalCarrito.toFixed(2)),
         }])
@@ -112,8 +115,9 @@ const Carrito = () => {
 
       if (errorDetalle) throw errorDetalle;
 
-      // Limpiar mesa después de usarla (opcional)
-      localStorage.removeItem("mesa_actual");   // ← NUEVO
+      // ✅ Limpiar mesa del localStorage después de confirmar el pedido
+      localStorage.removeItem("mesa_actual");
+      localStorage.removeItem("mesa_nombre");
 
       limpiarCarrito();
       navegar("/pedidosCliente");
@@ -390,6 +394,13 @@ const Carrito = () => {
                 <i className="bi bi-receipt me-2" style={{ color: "#ff6a00" }} />
                 Resumen
               </h5>
+              {/* ✅ Mostrar mesa si fue escaneada */}
+              {mesaNombre && (
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                  <span style={{ color: "#6b7280", fontSize: "0.9rem" }}>Mesa</span>
+                  <span style={{ fontWeight: 600 }}>{mesaNombre}</span>
+                </div>
+              )}
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                 <span style={{ color: "#6b7280", fontSize: "0.9rem" }}>Subtotal</span>
                 <span style={{ fontWeight: 600 }}>C${totalCarrito.toFixed(2)}</span>
