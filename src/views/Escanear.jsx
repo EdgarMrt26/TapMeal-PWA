@@ -14,10 +14,11 @@ const Escanear = () => {
         await lector.start(
           { facingMode: "environment" },
           { fps: 10, qrbox: 250 },
-          (textoDecodificado) => {
-            lector.stop().catch(() => {});
-
+          async (textoDecodificado) => {
             try {
+              // ✅ Esperar a que la cámara pare completamente antes de navegar
+              await lector.stop();
+
               let ruta = textoDecodificado.trim();
 
               if (ruta.startsWith("http")) {
@@ -25,14 +26,13 @@ const Escanear = () => {
                 ruta = url.pathname; // extrae "/mesa/3"
               }
 
-              // Verificar que sea una ruta de mesa válida
               if (ruta.startsWith("/mesa/")) {
                 navigate(ruta);
               } else {
                 setError("El QR no contiene una mesa válida.");
               }
             } catch (e) {
-              setError("No se pudo leer el enlace del QR.");
+              setError("No se pudo procesar el QR.");
             }
           },
           () => {}
