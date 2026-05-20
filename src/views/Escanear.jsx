@@ -16,7 +16,7 @@ const Escanear = () => {
           { fps: 10, qrbox: 250 },
           (textoDecodificado) => {
             lector.stop().catch(() => {});
-            const match = textoDecodificado.match(/\/mesa\/(\d+)/);
+            const match = textoDecodificado.match(/\/mesa\/([^/\s]+)/);
             if (match) {
               const idMesa = match[1];
               navigate(`/mesa/${idMesa}`);

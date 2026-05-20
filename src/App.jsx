@@ -56,7 +56,7 @@ const AppContenido = () => {
 
           {/* NUEVAS RUTAS */}
           <Route path="/escanear"    element={<Escanear />} />
-          <Route path="/mesa/:id_mesa" element={<PaginaMesa />} />
+          <Route path="/mesa/:nombre_mesa" element={<PaginaMesa />} />
 
           {/* Rutas del Admin */}
           <Route path="/categorias" element={<RutaProtegida rolRequerido="admin"><Categorias /></RutaProtegida>} />
