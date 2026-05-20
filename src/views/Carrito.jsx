@@ -66,7 +66,7 @@ const Carrito = () => {
 
       // Buscar id_tipo_pago en tabla tipo_pago (minúscula)
       const { data: tipoPagoData } = await supabase
-        .from("tipo_pago")
+        .from("Tipo_pago")
         .select("id_tipo_pago")
         .ilike("descripcion", `%${tipoPago}%`)
         .limit(1);
