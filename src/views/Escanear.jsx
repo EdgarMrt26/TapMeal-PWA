@@ -16,13 +16,23 @@ const Escanear = () => {
           { fps: 10, qrbox: 250 },
           (textoDecodificado) => {
             lector.stop().catch(() => {});
-            
-            const match = textoDecodificado.match(/\/mesa\/([^/\s]+)/);
-            if (match) {
-              const idMesa = match[1];
-              navigate(`/mesa/${idMesa}`);
-            } else {
-              setError("El QR no contiene una mesa válida.");
+
+            try {
+              let ruta = textoDecodificado.trim();
+
+              if (ruta.startsWith("http")) {
+                const url = new URL(ruta);
+                ruta = url.pathname; // extrae "/mesa/3"
+              }
+
+              // Verificar que sea una ruta de mesa válida
+              if (ruta.startsWith("/mesa/")) {
+                navigate(ruta);
+              } else {
+                setError("El QR no contiene una mesa válida.");
+              }
+            } catch (e) {
+              setError("No se pudo leer el enlace del QR.");
             }
           },
           () => {}

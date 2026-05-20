@@ -88,16 +88,9 @@ const RegistroCliente = () => {
         data: { rol: "cliente", id_cliente: idCliente }
       });
 
+      // 4. Redirigir al menú (como estaba originalmente)
       localStorage.setItem("usuario-supabase", form.correo.trim());
-
-      // ✅ Si hay una mesa guardada del QR, ir a procesarla para guardar nombre y marcarla ocupada
-      // Si no hay mesa, ir directo al menú
-      const mesaPendiente = localStorage.getItem("mesa_actual");
-      if (mesaPendiente) {
-        navegar(`/mesa/${mesaPendiente}`);
-      } else {
-        navegar("/menu");
-      }
+      navegar("/menu");
 
     } catch (err) {
       setError("Error inesperado. Intenta de nuevo.");
