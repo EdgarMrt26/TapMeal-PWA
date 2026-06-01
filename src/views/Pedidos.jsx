@@ -301,44 +301,48 @@ const Pedidos = () => {
    * Genera el texto para la FACTURA (con precios e IVA)
    */
   const generarTextoFactura = (pedido, detalles) => {
-    const subtotal = pedido.total || 0;
-    const iva = subtotal * 0.15;
-    const total = subtotal + iva;
-    const fecha = pedido.fecha
-      ? new Date(pedido.fecha).toLocaleString("es-NI")
-      : "-";
-    const mesa = pedido.Mesas?.id_mesa || "N/A";
-    const cliente =
-      `${pedido.Clientes?.nombre_cliente || ""} ${pedido.Clientes?.apellido_cliente || ""}`.trim() ||
-      "Mostrador";
+  // Calculamos el subtotal sumando los importes de cada línea
+  const subtotal = detalles.reduce((acc, det) => {
+    return acc + (det.cantidad * det.precio_unitario);
+  }, 0);
+  
+  const iva = subtotal * 0.15;
+  const total = subtotal + iva;
+  const fecha = pedido.fecha
+    ? new Date(pedido.fecha).toLocaleString("es-NI")
+    : "-";
+  const mesa = pedido.Mesas?.id_mesa || "N/A";
+  const cliente =
+    `${pedido.Clientes?.nombre_cliente || ""} ${pedido.Clientes?.apellido_cliente || ""}`.trim() ||
+    "Mostrador";
 
-    let texto = "IT'S COFFEE TIME - FACTURA\n";
-    texto += "================================\n";
-    texto += `Pedido N°: ${pedido.id_pedido}\n`;
-    texto += `Fecha    : ${fecha}\n`;
-    texto += `Mesa     : ${mesa}\n`;
-    texto += `Cliente  : ${cliente}\n`;
-    texto += "================================\n";
-    texto += "CANT  PRODUCTO               P.UNIT  SUBTOT\n";
-    texto += "--------------------------------\n";
+  let texto = "IT'S COFFEE TIME - FACTURA\n";
+  texto += "================================\n";
+  texto += `Pedido N°: ${pedido.id_pedido}\n`;
+  texto += `Fecha    : ${fecha}\n`;
+  texto += `Mesa     : ${mesa}\n`;
+  texto += `Cliente  : ${cliente}\n`;
+  texto += "================================\n";
+  texto += "CANT  PRODUCTO               P.UNIT  SUBTOT\n";
+  texto += "--------------------------------\n";
 
-    detalles.forEach((det) => {
-      const cant = String(det.cantidad).padEnd(4);
-      const prod = (det.Platillos?.nombre_platillo || "?").substring(0, 22).padEnd(23);
-      const punit = `$${det.precio_unitario.toFixed(2)}`.padStart(7);
-      const subt = `$${(det.cantidad * det.precio_unitario).toFixed(2)}`.padStart(8);
-      texto += `${cant}${prod}${punit} ${subt}\n`;
-    });
+  detalles.forEach((det) => {
+    const cant = String(det.cantidad).padEnd(4);
+    const prod = (det.Platillos?.nombre_platillo || "?").substring(0, 22).padEnd(23);
+    const punit = `$${det.precio_unitario.toFixed(2)}`.padStart(7);
+    const subt = `$${(det.cantidad * det.precio_unitario).toFixed(2)}`.padStart(8);
+    texto += `${cant}${prod}${punit} ${subt}\n`;
+  });
 
-    texto += "--------------------------------\n";
-    texto += `SUBTOTAL:${" ".repeat(20)}$${subtotal.toFixed(2)}\n`;
-    texto += `IVA(15%):${" ".repeat(20)}$${iva.toFixed(2)}\n`;
-    texto += `TOTAL   :${" ".repeat(20)}$${total.toFixed(2)}\n`;
-    texto += "================================\n";
-    texto += "Gracias por su visita\n";
-    texto += "It's Coffee Time\n";
-    return texto;
-  };
+  texto += "--------------------------------\n";
+  texto += `SUBTOTAL:${" ".repeat(20)}$${subtotal.toFixed(2)}\n`;
+  texto += `IVA(15%):${" ".repeat(20)}$${iva.toFixed(2)}\n`;
+  texto += `TOTAL   :${" ".repeat(20)}$${total.toFixed(2)}\n`;
+  texto += "================================\n";
+  texto += "Gracias por su visita\n";
+  texto += "It's Coffee Time\n";
+  return texto;
+};
 
   /* Manejador para imprimir VOUCHER (cocina) */
   const handleImprimirVoucher = async (idPedido) => {
