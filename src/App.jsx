@@ -10,6 +10,7 @@ import RegistroCliente from "./views/RegistroCliente";
 import Menu from "./views/Menu";
 import Carrito from "./views/Carrito";
 import PedidosCliente from "./views/PedidosCliente";
+import DetallePedidoCliente from "./views/DetallePedidoCliente";
 
 // NUEVAS VISTAS
 import Escanear from "./views/Escanear";
@@ -24,6 +25,7 @@ import Pedidos from "./views/Pedidos";
 import Extras from "./views/Extras";
 import Salsas from "./views/Salsas";
 import MenuAdmin from "./views/MenuAdmin";
+import Estadisticas from "./views/Estadisticas";
 
 import RutaProtegida from "./components/rutas/RutaProtegida";
 import Pagina404 from "./views/Pagina404";
@@ -36,14 +38,14 @@ const RUTAS_SIN_MARGEN = [
 
 const AppContenido = () => {
   const location = useLocation();
-  const sinMargen = RUTAS_SIN_MARGEN.includes(location.pathname);
+  // ✅ Corrección: también rutas dinámicas como /pedidoCliente/123
+  const sinMargen = RUTAS_SIN_MARGEN.includes(location.pathname) || location.pathname.startsWith('/pedidoCliente/');
 
   return (
     <>
       <Encabezado />
       <main className={sinMargen ? "" : "margen-superior-main"}>
         <Routes>
-
           {/* Rutas públicas */}
           <Route path="/"         element={<Inicio />} />
           <Route path="/login"    element={<Login />} />
@@ -51,12 +53,12 @@ const AppContenido = () => {
           <Route path="/menu"     element={<Menu />} />
           <Route path="/carrito"  element={<Carrito />} />
 
-          {/* Ruta para clientes (historial de pedidos) */}
+          {/* Ruta para clientes */}
           <Route path="/pedidosCliente" element={<PedidosCliente />} />
+          <Route path="/pedidoCliente/:id" element={<DetallePedidoCliente />} />
 
           {/* NUEVAS RUTAS */}
           <Route path="/escanear"        element={<Escanear />} />
-          {/* ✅ FIX: usa :id_mesa en lugar de :nombre_mesa */}
           <Route path="/mesa/:id_mesa"   element={<PaginaMesa />} />
 
           {/* Rutas del Admin */}
@@ -68,9 +70,9 @@ const AppContenido = () => {
           <Route path="/extras"     element={<RutaProtegida rolRequerido="admin"><Extras /></RutaProtegida>} />
           <Route path="/salsas"     element={<RutaProtegida rolRequerido="admin"><Salsas /></RutaProtegida>} />
           <Route path="/menu-admin" element={<RutaProtegida rolRequerido="admin"><MenuAdmin /></RutaProtegida>} />
+          <Route path="/estadisticas" element={<RutaProtegida rolRequerido="admin"><Estadisticas /></RutaProtegida>} />
 
           <Route path="*" element={<Pagina404 />} />
-
         </Routes>
       </main>
     </>

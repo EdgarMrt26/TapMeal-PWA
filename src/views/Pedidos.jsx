@@ -9,8 +9,7 @@ import TarjetaPedido from "../components/pedidos/TarjetaPedido";
 import NotificacionOperacion from "../components/NotificacionOperacion";
 import CuadroBusquedas from "../components/busquedas/CuadroBusqueda";
 import Paginacion from "../components/ordenamiento/Paginacion";
-import VoucherPedido from "../components/pedidos/VoucherPedido";    // nuevo
-import FacturaPedido from "../components/pedidos/FacturaPedido";    // nuevo
+// ── Se han eliminado los imports de VoucherPedido y FacturaPedido ──
 
 const Pedidos = () => {
   const [toast, setToast] = useState({ mostrar: false, mensaje: "", tipo: "" });
@@ -36,9 +35,7 @@ const Pedidos = () => {
   const [mostrarModalRegistro, setMostrarModalRegistro] = useState(false);
   const [mostrarModalEdicion, setMostrarModalEdicion] = useState(false);
   const [mostrarModalEliminacion, setMostrarModalEliminacion] = useState(false);
-  const [mostrarVoucher, setMostrarVoucher] = useState(false);      // nuevo
-  const [mostrarFactura, setMostrarFactura] = useState(false);      // nuevo
-  const [pedidoIdSeleccionado, setPedidoIdSeleccionado] = useState(null); // nuevo
+  // ── Estados de voucher y factura eliminados ──
 
   const [detallesPedido, setDetallesPedido] = useState([]);
 
@@ -243,16 +240,140 @@ const Pedidos = () => {
     setMostrarModalEliminacion(true);
   };
 
-  // Funciones para voucher y factura
-  const verVoucher = (id) => {
-    setPedidoIdSeleccionado(id);
-    setMostrarVoucher(true);
+  // ─────────────────────────────────────────────────────────────────
+  // NUEVAS FUNCIONES DE IMPRESIÓN DIRECTA (reemplazan a los modales)
+  // ─────────────────────────────────────────────────────────────────
+
+  /**
+   * Obtiene los detalles de un pedido desde Supabase
+   */
+  const obtenerDetallesPedido = async (idPedido) => {
+    const { data: detallesData, error } = await supabase
+      .from("Detalle_pedido")
+      .select(`
+        cantidad, precio_unitario,
+        Platillos (nombre_platillo),
+        Extras (descripcion),
+        Salsas (descripcion)
+      `)
+      .eq("id_pedido", idPedido);
+    if (error) throw error;
+    return detallesData || [];
   };
 
-  const verFactura = (id) => {
-    setPedidoIdSeleccionado(id);
-    setMostrarFactura(true);
+  /**
+   * Genera el texto para el VOUCHER de cocina (sin precios)
+   */
+  const generarTextoVoucher = (pedido, detalles) => {
+    const fecha = pedido.fecha
+      ? new Date(pedido.fecha).toLocaleString("es-NI")
+      : "-";
+    const mesa = pedido.Mesas?.id_mesa || "N/A";
+    const cliente =
+      `${pedido.Clientes?.nombre_cliente || ""} ${pedido.Clientes?.apellido_cliente || ""}`.trim() ||
+      "Mostrador";
+
+    let texto = "IT'S COFFEE TIME - COCINA\n";
+    texto += "================================\n";
+    texto += `Pedido #: ${pedido.id_pedido}\n`;
+    texto += `Fecha   : ${fecha}\n`;
+    texto += `Mesa    : ${mesa}\n`;
+    texto += `Cliente : ${cliente}\n`;
+    texto += "================================\n";
+    texto += "CANT  PLATILLO              EXTRA        SALSA\n";
+    texto += "--------------------------------\n";
+
+    detalles.forEach((det) => {
+      const cant = String(det.cantidad).padEnd(4);
+      const plat = (det.Platillos?.nombre_platillo || "?").substring(0, 22).padEnd(23);
+      const extra = (det.Extras?.descripcion || "-").substring(0, 12).padEnd(12);
+      const salsa = (det.Salsas?.descripcion || "-").substring(0, 10).padEnd(10);
+      texto += `${cant}${plat}${extra}${salsa}\n`;
+    });
+
+    texto += "--------------------------------\n";
+    texto += "ENTREGAR A COCINA\n";
+    texto += "================================\n";
+    return texto;
   };
+
+  /**
+   * Genera el texto para la FACTURA (con precios e IVA)
+   */
+  const generarTextoFactura = (pedido, detalles) => {
+    const subtotal = pedido.total || 0;
+    const iva = subtotal * 0.15;
+    const total = subtotal + iva;
+    const fecha = pedido.fecha
+      ? new Date(pedido.fecha).toLocaleString("es-NI")
+      : "-";
+    const mesa = pedido.Mesas?.id_mesa || "N/A";
+    const cliente =
+      `${pedido.Clientes?.nombre_cliente || ""} ${pedido.Clientes?.apellido_cliente || ""}`.trim() ||
+      "Mostrador";
+
+    let texto = "IT'S COFFEE TIME - FACTURA\n";
+    texto += "================================\n";
+    texto += `Pedido N°: ${pedido.id_pedido}\n`;
+    texto += `Fecha    : ${fecha}\n`;
+    texto += `Mesa     : ${mesa}\n`;
+    texto += `Cliente  : ${cliente}\n`;
+    texto += "================================\n";
+    texto += "CANT  PRODUCTO               P.UNIT  SUBTOT\n";
+    texto += "--------------------------------\n";
+
+    detalles.forEach((det) => {
+      const cant = String(det.cantidad).padEnd(4);
+      const prod = (det.Platillos?.nombre_platillo || "?").substring(0, 22).padEnd(23);
+      const punit = `$${det.precio_unitario.toFixed(2)}`.padStart(7);
+      const subt = `$${(det.cantidad * det.precio_unitario).toFixed(2)}`.padStart(8);
+      texto += `${cant}${prod}${punit} ${subt}\n`;
+    });
+
+    texto += "--------------------------------\n";
+    texto += `SUBTOTAL:${" ".repeat(20)}$${subtotal.toFixed(2)}\n`;
+    texto += `IVA(15%):${" ".repeat(20)}$${iva.toFixed(2)}\n`;
+    texto += `TOTAL   :${" ".repeat(20)}$${total.toFixed(2)}\n`;
+    texto += "================================\n";
+    texto += "Gracias por su visita\n";
+    texto += "It's Coffee Time\n";
+    return texto;
+  };
+
+  /* Manejador para imprimir VOUCHER (cocina) */
+  const handleImprimirVoucher = async (idPedido) => {
+    try {
+      const pedido = pedidos.find((p) => p.id_pedido === idPedido);
+      if (!pedido) {
+        alert("Pedido no encontrado.");
+        return;
+      }
+      const detalles = await obtenerDetallesPedido(idPedido);
+      const texto = generarTextoVoucher(pedido, detalles);
+      window.location.href = `rawbt:${encodeURIComponent(texto)}`;
+    } catch (error) {
+      console.error(error);
+      alert("Error al generar el voucher.");
+    }
+  };
+
+  /* Manejador para imprimir FACTURA */
+  const handleImprimirFactura = async (idPedido) => {
+    try {
+      const pedido = pedidos.find((p) => p.id_pedido === idPedido);
+      if (!pedido) {
+        alert("Pedido no encontrado.");
+        return;
+      }
+      const detalles = await obtenerDetallesPedido(idPedido);
+      const texto = generarTextoFactura(pedido, detalles);
+      window.location.href = `rawbt:${encodeURIComponent(texto)}`;
+    } catch (error) {
+      console.error(error);
+      alert("Error al generar la factura.");
+    }
+  };
+
 
   return (
     <Container className="mt-4 pt-3">
@@ -318,8 +439,8 @@ const Pedidos = () => {
               pedidos={pedidosPaginados}
               abrirModalEdicion={abrirModalEdicion}
               abrirModalEliminacion={abrirModalEliminacion}
-              onVerVoucher={verVoucher}
-              onVerFactura={verFactura}
+              onVerVoucher={handleImprimirVoucher}
+              onVerFactura={handleImprimirFactura}
             />
           </Col>
           <Col lg={12} className="d-none d-lg-block">
@@ -327,8 +448,8 @@ const Pedidos = () => {
               pedidos={pedidosPaginados}
               abrirModalEdicion={abrirModalEdicion}
               abrirModalEliminacion={abrirModalEliminacion}
-              onVerVoucher={verVoucher}
-              onVerFactura={verFactura}
+              onVerVoucher={handleImprimirVoucher}
+              onVerFactura={handleImprimirFactura}
             />
           </Col>
         </Row>
@@ -378,18 +499,6 @@ const Pedidos = () => {
         eliminarPedido={eliminarPedido}
       />
 
-      {/* VOUCHER Y FACTURA */}
-      <VoucherPedido
-        show={mostrarVoucher}
-        onHide={() => setMostrarVoucher(false)}
-        pedidoId={pedidoIdSeleccionado}
-      />
-
-      <FacturaPedido
-        show={mostrarFactura}
-        onHide={() => setMostrarFactura(false)}
-        pedidoId={pedidoIdSeleccionado}
-      />
 
       {/* TOAST */}
       <NotificacionOperacion

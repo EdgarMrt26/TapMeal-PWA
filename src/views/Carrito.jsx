@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Alert } from "react-bootstrap";
 import { supabase } from "../database/supabaseconfig";
 import { useCarrito } from "../components/contexto/CarritoContexto";
+import FormularioTarjeta from "../components/carrito/FormularioTarjeta"; // ← NUEVO
 
 const SIN_COMPLEMENTOS = ["frappés", "bebidas", "postres", "licores"];
 const CON_SALSAS = ["comidas", "alitas"];
@@ -23,6 +24,9 @@ const Carrito = () => {
   // ✅ Leer mesa del localStorage para mostrarla en el resumen
   const [mesaNombre] = useState(() => localStorage.getItem("mesa_nombre") || null);
   const navegar = useNavigate();
+
+  // ───── NUEVO: estado para mostrar el modal de tarjeta ─────
+  const [mostrarModalTarjeta, setMostrarModalTarjeta] = useState(false);
 
   useEffect(() => {
     const cargarComplementos = async () => {
@@ -120,13 +124,24 @@ const Carrito = () => {
       localStorage.removeItem("mesa_nombre");
 
       limpiarCarrito();
-      navegar("/pedidosCliente");
+      //navegar("/pedidosCliente");
+      //Nueva
+      navegar(`/pedidoCliente/${idPedido}`);
 
     } catch (err) {
       console.error("Error al procesar pedido:", err);
       setError("Ocurrió un error al registrar tu pedido. Intenta de nuevo.");
     } finally {
       setProcesando(false);
+    }
+  };
+
+  // ───── NUEVO: Manejador del botón de pago ─────
+  const handleProcederPago = () => {
+    if (tipoPago === "Tarjeta") {
+      setMostrarModalTarjeta(true); // Abre el modal de tarjeta
+    } else {
+      procederPago(); // Pago en efectivo: flujo normal
     }
   };
 
@@ -420,7 +435,7 @@ const Carrito = () => {
 
             {/* Botón pago */}
             <button
-              onClick={procederPago}
+              onClick={handleProcederPago} 
               disabled={procesando}
               style={{
                 width: "100%", padding: "15px",
@@ -438,6 +453,13 @@ const Carrito = () => {
             </button>
           </>
         )}
+
+        {/* ───── NUEVO: Modal de pago con tarjeta ───── */}
+        <FormularioTarjeta
+          show={mostrarModalTarjeta}
+          onHide={() => setMostrarModalTarjeta(false)}
+          onPagoExitoso={procederPago} // Llama a la función original al completar el pago
+        />
       </div>
     </div>
   );

@@ -6,7 +6,7 @@ import Logo from "../../assets/Logo.png";
 
 const RUTAS_PUBLICAS = ["/", "/login", "/registro"];
 
-const RUTAS_CLIENTE = ["/menu", "/pedidosCliente", "/carrito", "/cuenta"];
+const RUTAS_CLIENTE = ["/menu", "/pedidosCliente",  "/carrito", "/cuenta"];
 
 // Links para cliente logueado (todos)
 const navLinksCliente = [
@@ -381,6 +381,7 @@ const ContenidoSidebarAdmin = ({ activo, manejarNavegacion, cerrarSesion }) => (
     </div>
     <hr className="sidebar-divider" />
     <Nav className="flex-column menu-sidebar">
+      <Nav.Link onClick={() => manejarNavegacion("/estadisticas")}     className={activo("/estadisticas")}>Estadisticas</Nav.Link>
       <Nav.Link onClick={() => manejarNavegacion("/productos")}  className={activo("/productos")}>Platillos</Nav.Link>
       <Nav.Link onClick={() => manejarNavegacion("/menu-admin")} className={activo("/menu-admin")}>Ver Menú</Nav.Link>
       <Nav.Link onClick={() => manejarNavegacion("/categorias")} className={activo("/categorias")}>Categorías</Nav.Link>
