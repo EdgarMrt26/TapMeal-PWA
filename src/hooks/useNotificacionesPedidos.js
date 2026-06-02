@@ -36,7 +36,6 @@ const useNotificacionesPedidos = () => {
   }, []);
 
   useEffect(() => {
-    // Solo escuchamos inserts con estado Pendiente
     const canal = supabase
       .channel("pedidos-nuevos")
       .on(
@@ -45,14 +44,19 @@ const useNotificacionesPedidos = () => {
           event: "INSERT",
           schema: "public",
           table: "Pedido",
-          filter: "estado=eq.Pendiente",
+          // Sin filtro para mayor compatibilidad, filtramos manualmente abajo
         },
         async (payload) => {
+          console.log("🔔 Payload recibido:", payload);
+          // Filtramos manualmente por estado Pendiente
+          if (payload.new.estado !== "Pendiente") return;
           const pedidoCompleto = await hidratarPedido(payload.new);
           setPedidosPendientes((prev) => [...prev, pedidoCompleto]);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Estado del canal Realtime:", status);
+      });
 
     return () => {
       supabase.removeChannel(canal);
