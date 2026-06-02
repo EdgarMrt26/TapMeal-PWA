@@ -2,10 +2,6 @@ import React from "react";
 import { Badge } from "react-bootstrap";
 import "bootstrap-icons/font/bootstrap-icons.css";
 
-/**
- * Ícono de campana con badge numérico.
- * Se coloca en el header o barra de navegación del admin.
- */
 const CampanaPedidos = ({ cantidad, onClick }) => {
   return (
     <div
