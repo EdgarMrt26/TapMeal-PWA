@@ -10,6 +10,10 @@ import NotificacionOperacion from "../components/NotificacionOperacion";
 import CuadroBusquedas from "../components/busquedas/CuadroBusqueda";
 import Paginacion from "../components/ordenamiento/Paginacion";
 // ── Se han eliminado los imports de VoucherPedido y FacturaPedido ──
+// ── NUEVO ──
+import ModalNuevoPedido from "../components/pedidos/ModalNuevoPedido";
+import CampanaPedidos from "../components/pedidos/CampanaPedidos";
+import useNotificacionesPedidos from "../hooks/useNotificacionesPedidos";
 
 const Pedidos = () => {
   const [toast, setToast] = useState({ mostrar: false, mensaje: "", tipo: "" });
@@ -57,6 +61,41 @@ const Pedidos = () => {
   });
 
   const [pedidoAEliminar, setPedidoAEliminar] = useState(null);
+
+  // ── NUEVO: notificaciones en tiempo real ──
+  const { pedidosPendientes, descartarPedido } = useNotificacionesPedidos();
+  const pedidoEnRevision = pedidosPendientes[0] ?? null;
+
+  // ── NUEVO: aceptar pedido ──
+  const handleAceptarPedido = async (pedido) => {
+    try {
+      const { error } = await supabase
+        .from("Pedido")
+        .update({ estado: "En preparación" })
+        .eq("id_pedido", pedido.id_pedido);
+
+      if (error) throw error;
+
+      descartarPedido(pedido.id_pedido);
+      await cargarPedidos();
+      setToast({ mostrar: true, mensaje: `Pedido #${pedido.id_pedido} aceptado.`, tipo: "exito" });
+    } catch {
+      setToast({ mostrar: true, mensaje: "Error al aceptar el pedido.", tipo: "error" });
+    }
+  };
+
+  // ── NUEVO: rechazar pedido ──
+  const handleRechazarPedido = async (pedido) => {
+    try {
+      await supabase.from("Detalle_pedido").delete().eq("id_pedido", pedido.id_pedido);
+      await supabase.from("Pedido").delete().eq("id_pedido", pedido.id_pedido);
+
+      descartarPedido(pedido.id_pedido);
+      setToast({ mostrar: true, mensaje: `Pedido #${pedido.id_pedido} rechazado.`, tipo: "error" });
+    } catch {
+      setToast({ mostrar: true, mensaje: "Error al rechazar el pedido.", tipo: "error" });
+    }
+  };
 
   useEffect(() => {
     cargarCatalogos();
@@ -387,7 +426,12 @@ const Pedidos = () => {
         <Col>
           <h3><i className="bi bi-receipt me-2"></i>Pedidos</h3>
         </Col>
-        <Col className="text-end">
+        <Col className="text-end d-flex align-items-center justify-content-end gap-3">
+          {/* ── NUEVO: campanita ── */}
+          <CampanaPedidos
+            cantidad={pedidosPendientes.length}
+            onClick={() => {}}
+          />
           <Button variant="dark" onClick={() => setMostrarModalRegistro(true)}>
             <i className="bi bi-plus-lg me-2"></i>Nuevo Pedido
           </Button>
@@ -503,6 +547,13 @@ const Pedidos = () => {
         eliminarPedido={eliminarPedido}
       />
 
+      {/* ── NUEVO: modal tiempo real ── */}
+      <ModalNuevoPedido
+        pedido={pedidoEnRevision}
+        onAceptar={handleAceptarPedido}
+        onRechazar={handleRechazarPedido}
+        onCerrar={() => descartarPedido(pedidoEnRevision?.id_pedido)}
+      />
 
       {/* TOAST */}
       <NotificacionOperacion
