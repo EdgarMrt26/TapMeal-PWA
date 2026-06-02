@@ -1,20 +1,16 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "../database/supabaseconfig";
 
-/**
- * Escucha en tiempo real los pedidos nuevos con estado "Pendiente"
- * e hidrata cada uno con cliente, mesa, tipo y detalles.
- */
 const useNotificacionesPedidos = () => {
   const [pedidosPendientes, setPedidosPendientes] = useState([]);
   const [conectado, setConectado] = useState(false);
+  const [pedidosEsperandoDetalles, setPedidosEsperandoDetalles] = useState(new Map());
 
   console.log("🟢 Hook useNotificacionesPedidos inicializado");
 
   const hidratarPedido = useCallback(async (pedidoBase) => {
     console.log(`🔄 Hidratando pedido ID: ${pedidoBase.id_pedido}`);
     try {
-      // Traemos relaciones del pedido
       const { data: pedidoData, error: errorPedido } = await supabase
         .from("Pedido")
         .select(`
@@ -27,12 +23,10 @@ const useNotificacionesPedidos = () => {
         .single();
 
       if (errorPedido) {
-        console.error(`❌ Error al hidratar pedido ${pedidoBase.id_pedido}:`, errorPedido);
+        console.error(`❌ Error al hidratar pedido:`, errorPedido);
         return null;
       }
-      console.log(`✅ Pedido ${pedidoBase.id_pedido} hidratado correctamente (relaciones)`);
 
-      // Traemos detalles con platillo, extra y salsa
       const { data: detallesData, error: errorDetalles } = await supabase
         .from("Detalle_pedido")
         .select(`
@@ -45,21 +39,38 @@ const useNotificacionesPedidos = () => {
         .eq("id_pedido", pedidoBase.id_pedido);
 
       if (errorDetalles) {
-        console.error(`❌ Error al hidratar detalles del pedido ${pedidoBase.id_pedido}:`, errorDetalles);
+        console.error(`❌ Error al obtener detalles:`, errorDetalles);
+      }
+
+      if (detallesData && detallesData.length > 0) {
+        console.log(`✅ Pedido ${pedidoBase.id_pedido} tiene ${detallesData.length} detalles`);
+        detallesData.forEach((det, idx) => {
+          console.log(`  📝 ${det.cantidad}x ${det.Platillos?.nombre_platillo} - C$${det.precio_unitario}`);
+        });
       } else {
-        console.log(`✅ Detalles del pedido ${pedidoBase.id_pedido}: ${detallesData?.length || 0} items`);
+        console.log(`⏳ Pedido ${pedidoBase.id_pedido} aún sin detalles`);
       }
 
       return { ...pedidoData, detalles: detallesData || [] };
     } catch (err) {
-      console.error(`❌ Error crítico en hidratarPedido ${pedidoBase.id_pedido}:`, err);
+      console.error(`❌ Error crítico:`, err);
       return null;
     }
   }, []);
 
-  // Cargar pedidos pendientes existentes al inicio
+  const agregarPedidoALista = useCallback((pedidoCompleto) => {
+    setPedidosPendientes((prev) => {
+      if (prev.some(p => p.id_pedido === pedidoCompleto.id_pedido)) {
+        console.log(`⚠️ Pedido ${pedidoCompleto.id_pedido} ya existe, ignorando`);
+        return prev;
+      }
+      console.log(`➕ Agregando pedido ${pedidoCompleto.id_pedido} a la lista`);
+      return [pedidoCompleto, ...prev];
+    });
+  }, []);
+
   const cargarPendientesExistentes = useCallback(async () => {
-    console.log("📋 Cargando pedidos pendientes existentes desde Supabase...");
+    console.log("📋 Cargando pedidos pendientes existentes...");
     try {
       const { data, error } = await supabase
         .from("Pedido")
@@ -72,21 +83,14 @@ const useNotificacionesPedidos = () => {
         .eq("estado", "Pendiente")
         .order("fecha", { ascending: false });
 
-      if (error) {
-        console.error("❌ Error cargando pendientes existentes:", error);
-        return;
-      }
+      if (error) throw error;
 
-      console.log(`📋 Se encontraron ${data?.length || 0} pedidos pendientes existentes`);
-
-      // También cargar detalles para cada pedido
       const pedidosConDetalles = await Promise.all(
         (data || []).map(async (pedido) => {
           const { data: detalles } = await supabase
             .from("Detalle_pedido")
             .select(`
-              cantidad, 
-              precio_unitario,
+              cantidad, precio_unitario,
               Platillos ( nombre_platillo ),
               Extras ( descripcion ),
               Salsas ( descripcion )
@@ -97,22 +101,22 @@ const useNotificacionesPedidos = () => {
       );
 
       setPedidosPendientes(pedidosConDetalles);
-      console.log(`✅ Lista de pendientes actualizada con ${pedidosConDetalles.length} pedidos`);
+      console.log(`✅ Cargados ${pedidosConDetalles.length} pedidos pendientes`);
     } catch (err) {
-      console.error("❌ Error en cargarPendientesExistentes:", err);
+      console.error("❌ Error cargando pendientes:", err);
     }
   }, []);
 
   useEffect(() => {
-    let canal = null;
+    let canalPedidos = null;
+    let canalDetalles = null;
 
     const setupRealtime = async () => {
-      console.log("🔄 Configurando canal Realtime para Pedidos...");
-      console.log("🔍 Supabase URL:", import.meta.env.VITE_SUPABASE_URL);
-      console.log("🔍 Tabla objetivo: Pedido");
+      console.log("🔄 Configurando canales Realtime...");
 
-      canal = supabase
-        .channel("pedidos-nuevos")
+      // Canal para Pedidos (INSERT)
+      canalPedidos = supabase
+        .channel("pedidos-insert")
         .on(
           "postgres_changes",
           {
@@ -121,134 +125,111 @@ const useNotificacionesPedidos = () => {
             table: "Pedido",
           },
           async (payload) => {
-            console.log("🔔🔔🔔 EVENTO INSERT RECIBIDO 🔔🔔🔔");
-            console.log("Payload completo:", JSON.stringify(payload, null, 2));
-            console.log("Nuevo pedido insertado:", payload.new);
-            console.log("Estado del nuevo pedido:", payload.new.estado);
+            console.log("🔔 NUEVO PEDIDO RECIBIDO:", payload.new.id_pedido, "Estado:", payload.new.estado);
             
-            // Filtramos manualmente por estado Pendiente
             if (payload.new.estado !== "Pendiente") {
-              console.log(`⏭️ Pedido ${payload.new.id_pedido} no es Pendiente (es: "${payload.new.estado}"), ignorando`);
+              console.log(`⏭️ Pedido no es Pendiente, ignorando`);
               return;
             }
-            
-            console.log(`✅ Pedido PENDIENTE detectado, ID: ${payload.new.id_pedido}`);
+
+            // Intentar obtener el pedido con sus detalles
             const pedidoCompleto = await hidratarPedido(payload.new);
             
-            if (pedidoCompleto) {
-              console.log(`📦 Pedido completo hidratado para ID ${payload.new.id_pedido}:`, pedidoCompleto);
-              setPedidosPendientes((prev) => {
-                // Evitar duplicados
-                if (prev.some(p => p.id_pedido === pedidoCompleto.id_pedido)) {
-                  console.log(`⚠️ Pedido ${pedidoCompleto.id_pedido} ya existe en la lista, ignorando duplicado`);
-                  return prev;
-                }
-                console.log(`➕ Agregando pedido ${pedidoCompleto.id_pedido} a la lista. Total antes: ${prev.length}, después: ${prev.length + 1}`);
-                return [pedidoCompleto, ...prev];
+            if (pedidoCompleto && pedidoCompleto.detalles.length > 0) {
+              // Ya tiene detalles, agregar directamente
+              agregarPedidoALista(pedidoCompleto);
+            } else if (pedidoCompleto) {
+              // No tiene detalles aún, guardar para esperar
+              console.log(`⏳ Pedido ${payload.new.id_pedido} esperando detalles...`);
+              setPedidosEsperandoDetalles(prev => {
+                const newMap = new Map(prev);
+                newMap.set(payload.new.id_pedido, pedidoCompleto);
+                return newMap;
               });
-            } else {
-              console.error(`❌ No se pudo hidratar el pedido ${payload.new.id_pedido}`);
-            }
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "UPDATE",
-            schema: "public",
-            table: "Pedido",
-          },
-          async (payload) => {
-            console.log("🔄🔔 EVENTO UPDATE RECIBIDO 🔔🔄");
-            console.log("Payload UPDATE:", payload);
-            console.log("Estado ANTES:", payload.old.estado);
-            console.log("Estado DESPUÉS:", payload.new.estado);
-            
-            // Si el estado cambió de Pendiente a otro, lo removemos de la lista
-            if (payload.old.estado === "Pendiente" && payload.new.estado !== "Pendiente") {
-              console.log(`✅ Pedido ${payload.new.id_pedido} ya no está Pendiente (ahora: ${payload.new.estado}), removiendo de lista`);
-              setPedidosPendientes((prev) => {
-                const nuevaLista = prev.filter(p => p.id_pedido !== payload.new.id_pedido);
-                console.log(`Lista actualizada: antes ${prev.length}, después ${nuevaLista.length}`);
-                return nuevaLista;
-              });
-            }
-            
-            // Si el estado cambió a Pendiente (por algún motivo), lo agregamos
-            if (payload.old.estado !== "Pendiente" && payload.new.estado === "Pendiente") {
-              console.log(`✅ Pedido ${payload.new.id_pedido} cambió a Pendiente, agregando a lista`);
-              const pedidoCompleto = await hidratarPedido(payload.new);
-              if (pedidoCompleto) {
-                setPedidosPendientes((prev) => {
-                  if (prev.some(p => p.id_pedido === pedidoCompleto.id_pedido)) {
-                    console.log(`⚠️ Pedido ${pedidoCompleto.id_pedido} ya existe, no se agrega duplicado`);
-                    return prev;
-                  }
-                  console.log(`➕ Agregando pedido ${pedidoCompleto.id_pedido} a la lista`);
-                  return [pedidoCompleto, ...prev];
-                });
-              }
             }
           }
         )
         .subscribe((status) => {
-          console.log("📡 Estado del canal Realtime:", status);
-          console.log("🔍 Status code:", status);
-          
-          if (status === "SUBSCRIBED") {
-            console.log("✅✅✅ Canal Realtime SUSCRIBIDO correctamente ✅✅✅");
-            setConectado(true);
-            // Una vez conectado, cargamos los pendientes existentes
-            cargarPendientesExistentes();
-          } else if (status === "CHANNEL_ERROR") {
-            console.error("❌❌❌ Error en el canal Realtime ❌❌❌");
-            setConectado(false);
-          } else if (status === "TIMED_OUT") {
-            console.warn("⚠️ Timeout en el canal Realtime");
-            setConectado(false);
-          } else if (status === "CLOSED") {
-            console.log("🔌 Canal Realtime cerrado");
-            setConectado(false);
-          }
+          console.log("📡 Canal Pedidos status:", status);
+          if (status === "SUBSCRIBED") setConectado(true);
         });
+
+      // Canal para Detalle_pedido (INSERT)
+      canalDetalles = supabase
+        .channel("detalles-insert")
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "Detalle_pedido",
+          },
+          async (payload) => {
+            console.log(`🔔 NUEVO DETALLE para pedido ID: ${payload.new.id_pedido}`);
+            
+            // Verificar si tenemos ese pedido esperando
+            setPedidosEsperandoDetalles(prev => {
+              const newMap = new Map(prev);
+              const pedidoPendiente = newMap.get(payload.new.id_pedido);
+              
+              if (pedidoPendiente) {
+                console.log(`✅ Pedido ${payload.new.id_pedido} ya tiene detalles, verificando si ya están todos...`);
+                
+                // Recargar el pedido completo nuevamente
+                setTimeout(async () => {
+                  const pedidoCompleto = await hidratarPedido({ id_pedido: payload.new.id_pedido });
+                  if (pedidoCompleto && pedidoCompleto.detalles.length > 0) {
+                    console.log(`✅ Pedido ${payload.new.id_pedido} ahora tiene ${pedidoCompleto.detalles.length} detalles, agregando a lista`);
+                    agregarPedidoALista(pedidoCompleto);
+                    // Remover de espera
+                    setPedidosEsperandoDetalles(prevMap => {
+                      const newMap2 = new Map(prevMap);
+                      newMap2.delete(payload.new.id_pedido);
+                      return newMap2;
+                    });
+                  }
+                }, 500);
+              }
+              
+              return newMap;
+            });
+          }
+        )
+        .subscribe((status) => {
+          console.log("📡 Canal Detalles status:", status);
+        });
+
+      cargarPendientesExistentes();
     };
 
     setupRealtime();
 
     return () => {
-      if (canal) {
-        console.log("🔌 Desconectando canal Realtime...");
-        supabase.removeChannel(canal);
-        console.log("🔌 Canal Realtime desconectado");
-      }
+      if (canalPedidos) supabase.removeChannel(canalPedidos);
+      if (canalDetalles) supabase.removeChannel(canalDetalles);
+      console.log("🔌 Canales desconectados");
     };
-  }, [hidratarPedido, cargarPendientesExistentes]);
+  }, [hidratarPedido, agregarPedidoALista, cargarPendientesExistentes]);
 
   const descartarPedido = useCallback((idPedido) => {
-    console.log(`🗑️ Descartando pedido ${idPedido} de la lista de notificaciones`);
-    setPedidosPendientes((prev) => {
-      const nuevaLista = prev.filter((p) => p.id_pedido !== idPedido);
-      console.log(`Lista de pendientes: antes ${prev.length}, después ${nuevaLista.length}`);
-      return nuevaLista;
+    console.log(`🗑️ Descartando pedido ${idPedido}`);
+    setPedidosPendientes(prev => prev.filter(p => p.id_pedido !== idPedido));
+    setPedidosEsperandoDetalles(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(idPedido);
+      return newMap;
     });
   }, []);
 
   const actualizarPedidoEnLista = useCallback((idPedido, nuevosDatos) => {
-    console.log(`✏️ Actualizando pedido ${idPedido} en lista local`);
-    setPedidosPendientes((prev) =>
-      prev.map((p) =>
-        p.id_pedido === idPedido ? { ...p, ...nuevosDatos } : p
-      )
+    setPedidosPendientes(prev =>
+      prev.map(p => p.id_pedido === idPedido ? { ...p, ...nuevosDatos } : p)
     );
   }, []);
 
-  // Log del estado actual de pedidos pendientes
   useEffect(() => {
-    console.log(`📊 Estado actual - Conectado: ${conectado}, Pedidos pendientes: ${pedidosPendientes.length}`);
-    if (pedidosPendientes.length > 0) {
-      console.log("📋 IDs de pedidos pendientes:", pedidosPendientes.map(p => p.id_pedido));
-    }
-  }, [conectado, pedidosPendientes]);
+    console.log(`📊 Estado: Conectado=${conectado}, Pendientes=${pedidosPendientes.length}, Esperando=${pedidosEsperandoDetalles.size}`);
+  }, [conectado, pedidosPendientes.length, pedidosEsperandoDetalles.size]);
 
   return { 
     pedidosPendientes, 
