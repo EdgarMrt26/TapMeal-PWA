@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Row, Col, Spinner, Alert } from "react-bootstrap";
-import { useNavigate } from "react-router-dom";
+import { Row, Col, Spinner, Alert, Badge } from "react-bootstrap";
+import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../database/supabaseconfig";
 import TarjetaMenu from "../components/menu/TarjetaMenu";
 import BotonCarrito from "../components/carrito/BotonCarrito";
@@ -14,8 +14,49 @@ const Menu = () => {
   const [textoBusqueda, setTextoBusqueda] = useState("");
   const [cargando, setCargando] = useState(true);
   const [sesionActiva, setSesionActiva] = useState(false);
+  const [nombreCliente, setNombreCliente] = useState("");
   const { agregarAlCarrito } = useCarrito();
   const navegar = useNavigate();
+  const { idMesa } = useParams();
+  const [nombreMesa, setNombreMesa] = useState("");
+
+  // ✅ INTEGRADO: Manejo de mesa por QR
+  useEffect(() => {
+    if (idMesa) {
+      const idNumerico = parseInt(idMesa, 10);
+      const guardada = localStorage.getItem("mesa_actual");
+      if (guardada && parseInt(guardada, 10) !== idNumerico) {
+        localStorage.removeItem("mesa_actual");
+        localStorage.removeItem("mesa_nombre");
+      }
+      localStorage.setItem("mesa_actual", idNumerico);
+      // ✅ AGREGADO: Establecer modo pedido en local
+      localStorage.setItem("modo_pedido", "en_local");
+      
+      const cargarNombreMesa = async () => {
+        try {
+          const { data, error } = await supabase
+            .from("Mesas")
+            .select("nombre_mesa")
+            .eq("id_mesa", idNumerico)
+            .single();
+          if (error) throw error;
+          const nombre = data?.nombre_mesa || `Mesa ${idNumerico}`;
+          setNombreMesa(nombre);
+          localStorage.setItem("mesa_nombre", nombre);
+        } catch {
+          const nombre = `Mesa ${idNumerico}`;
+          setNombreMesa(nombre);
+          localStorage.setItem("mesa_nombre", nombre);
+        }
+      };
+      cargarNombreMesa();
+    } else {
+      localStorage.removeItem("mesa_actual");
+      localStorage.removeItem("mesa_nombre");
+      setNombreMesa("");
+    }
+  }, [idMesa]);
 
   useEffect(() => {
     const inicializar = async () => {
@@ -27,7 +68,19 @@ const Menu = () => {
         const rol = session?.user?.user_metadata?.rol;
 
         if (rol === "admin") { navegar("/categorias"); return; }
-        if (session && rol === "cliente") setSesionActiva(true);
+        
+        if (session && rol === "cliente") {
+          setSesionActiva(true);
+          // ✅ INTEGRADO: Obtener nombre del cliente
+          const metadata = session.user.user_metadata;
+          const nombre = metadata?.nombre || "";
+          const apellido = metadata?.apellido || "";
+          if (nombre || apellido) {
+            setNombreCliente(`${nombre} ${apellido}`.trim());
+          } else {
+            setNombreCliente(session.user.email);
+          }
+        }
 
         const [resPlatillos, resCategorias, resExtras] = await Promise.all([
           supabase.from("Platillos").select("*").order("nombre_platillo", { ascending: true }),
@@ -79,7 +132,7 @@ const Menu = () => {
           <i className="bi bi-eye me-2" />
           Estás viendo el menú como <strong>invitado</strong>.{" "}
           <span
-            onClick={() => navegar("/registro")}
+            onClick={() => navegar(idMesa ? `/registro?mesa=${idMesa}` : "/registro")}
             style={{ color: "#ff6a00", fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}
           >
             Regístrate gratis
@@ -96,9 +149,32 @@ const Menu = () => {
 
         <div style={{ marginBottom: 24 }}>
           <h2 style={{ fontWeight: 800, color: "#0c0c2c", marginBottom: 4 }}>Menú</h2>
-          <p style={{ color: "#6b7280", fontSize: "0.9rem", margin: 0 }}>
-            {sesionActiva ? "Elige tus platillos favoritos" : "Explora nuestros platillos"}
-          </p>
+          
+          {/* ✅ INTEGRADO: Badge de mesa */}
+          {nombreMesa && (
+            <Badge bg="dark" className="mt-2">
+              <i className="bi bi-table me-1"></i> {nombreMesa}
+            </Badge>
+          )}
+          
+          {/* ✅ INTEGRADO: Indicador de pedido en línea */}
+          {!idMesa && (
+            <div className="text-muted small mt-2">
+              <i className="bi bi-info-circle"></i> Pedido en línea
+            </div>
+          )}
+          
+          {/* ✅ INTEGRADO: Nombre del cliente */}
+          {sesionActiva && nombreCliente && (
+            <div style={{
+              marginTop: 12, fontSize: "0.9rem",
+              background: "rgba(255,106,0,0.08)", padding: "8px 12px",
+              borderRadius: 10, display: "inline-block",
+            }}>
+              <i className="bi bi-person-circle me-1" style={{ color: "#ff6a00" }}></i>
+              Pedido a nombre de: <strong>{nombreCliente}</strong>
+            </div>
+          )}
         </div>
 
         {/* Buscador */}
@@ -173,6 +249,7 @@ const Menu = () => {
                   extras={extras}
                   onAgregar={agregarAlCarrito}
                   esInvitado={!sesionActiva}
+                  mesaId={idMesa || null}
                 />
               </Col>
             ))}

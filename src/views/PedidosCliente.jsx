@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Container, Row, Col, Card, Badge, Spinner, Alert, Button } from "react-bootstrap";
+import { Container, Row, Col, Spinner, Alert } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../database/supabaseconfig";
 import DetallesPedidoModal from "../components/pedidosCliente/DetallesPedidoModal";
+import TarjetaPedidoCliente from "../components/pedidosCliente/TarjetaPedidoCliente";
+import CuadroBusquedas from "../components/busquedas/CuadroBusqueda";
+import Paginacion from "../components/ordenamiento/Paginacion";
 
 const PedidosCliente = () => {
   const [pedidos, setPedidos] = useState([]);
@@ -15,7 +18,14 @@ const PedidosCliente = () => {
   const [tiposPago, setTiposPago] = useState([]);
   const navigate = useNavigate();
 
-  // Obtener id_cliente desde user_metadata
+  // Estados de Búsqueda, Filtrado y Paginación
+  const [textoBusqueda, setTextoBusqueda] = useState("");
+  const [pedidosFiltrados, setPedidosFiltrados] = useState([]);
+  const [estadoFiltro, setEstadoFiltro] = useState("Todos");
+  const [registrosPorPagina, establecerRegistrosPorPagina] = useState(5);
+  const [paginaActual, establecerPaginaActual] = useState(1);
+
+  // ✅ TU LÓGICA ORIGINAL: Obtener id_cliente desde user_metadata
   const obtenerIdCliente = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return null;
@@ -41,12 +51,13 @@ const PedidosCliente = () => {
     }
   };
 
-  // ✅ Recibe tiposPago como argumento para no depender del estado asíncrono
+  // ✅ TU LÓGICA ORIGINAL: getTipoPago con parámetro para evitar dependencia asíncrona
   const getTipoPago = (idTipoPago, listaTiposPago) => {
     const tipo = listaTiposPago.find(t => Number(t.id_tipo_pago) === Number(idTipoPago));
     return tipo ? tipo.descripcion : "No especificado";
   };
 
+  // ✅ TU LÓGICA ORIGINAL: verDetalles pasando listaTiposPago como argumento
   const verDetalles = async (pedido, listaTiposPago) => {
     const pedidoConTipo = {
       ...pedido,
@@ -57,11 +68,13 @@ const PedidosCliente = () => {
     setMostrarModal(true);
   };
 
+  // ✅ TU LÓGICA ORIGINAL: formatearFecha
   const formatearFecha = (fecha) => {
     if (!fecha) return "Fecha no disponible";
     return new Date(fecha).toLocaleString();
   };
 
+  // ✅ TU LÓGICA ORIGINAL: useEffect con toda tu lógica de autenticación y carga
   useEffect(() => {
     const inicializar = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -79,7 +92,6 @@ const PedidosCliente = () => {
       }
 
       try {
-        // ✅ Cargar Tipo_pedido, Tipo_pago y pedidos en paralelo
         const [resTiposPedido, resTiposPago, resPedidos] = await Promise.all([
           supabase.from("Tipo_pedido").select("id_tipo, descripcion"),
           supabase.from("Tipo_pago").select("id_tipo_pago, descripcion"),
@@ -93,13 +105,11 @@ const PedidosCliente = () => {
         const listaTiposPedido = resTiposPedido.data || [];
         const listaTiposPago = resTiposPago.data || [];
 
-        // ✅ Guardar en estado y también usar directamente para renderizar
         setTiposPedido(listaTiposPedido);
         setTiposPago(listaTiposPago);
 
         if (resPedidos.error) throw resPedidos.error;
 
-        // ✅ Resolver tipoPagoNombre directamente en cada pedido al cargarlos
         const pedidosConTipo = (resPedidos.data || []).map(p => ({
           ...p,
           tipoPagoNombre: getTipoPago(p.id_tipo_pago, listaTiposPago),
@@ -117,46 +127,119 @@ const PedidosCliente = () => {
     inicializar();
   }, [navigate]);
 
-  if (cargando) return (<Container className="text-center mt-5"><Spinner animation="border" variant="warning" /><p>Cargando tus pedidos...</p></Container>);
-  if (error) return (<Container className="mt-5"><Alert variant="danger">{error}</Alert></Container>);
+  // Efecto reactivo para filtrar pedidos
+  useEffect(() => {
+    let resultado = pedidos;
+
+    if (textoBusqueda.trim()) {
+      const textoLower = textoBusqueda.toLowerCase();
+      resultado = resultado.filter((p) =>
+        p.id_pedido?.toString().includes(textoLower) ||
+        p.estado?.toLowerCase().includes(textoLower) ||
+        p.tipoPagoNombre?.toLowerCase().includes(textoLower) ||
+        (p.id_tipo === 1 || p.id_tipo === "1" ? "en línea" : "presencial").includes(textoLower)
+      );
+    }
+
+    if (estadoFiltro !== "Todos") {
+      resultado = resultado.filter((p) => p.estado?.toLowerCase() === estadoFiltro.toLowerCase());
+    }
+
+    setPedidosFiltrados(resultado);
+    establecerPaginaActual(1);
+  }, [textoBusqueda, estadoFiltro, pedidos]);
+
+  const manejarBusqueda = (e) => {
+    setTextoBusqueda(e.target.value);
+  };
+
+  // PAGINACIÓN
+  const pedidosPaginados = pedidosFiltrados.slice(
+    (paginaActual - 1) * registrosPorPagina,
+    paginaActual * registrosPorPagina
+  );
+
+  if (cargando) {
+    return (
+      <Container className="text-center mt-5">
+        <Spinner animation="border" variant="warning" />
+        <p className="mt-2">Cargando tus pedidos...</p>
+      </Container>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container className="mt-5">
+        <Alert variant="danger">{error}</Alert>
+      </Container>
+    );
+  }
 
   return (
-    <Container className="mt-4">
-      <h2 className="mb-4" style={{ fontWeight: 700, color: "#0c0c2c" }}>
-        <i className="bi bi-receipt me-2" style={{ color: "#ff6a00" }} /> Mis Pedidos
-      </h2>
-      {pedidos.length === 0 ? (
-        <Alert variant="info">No has realizado ningún pedido aún.</Alert>
-      ) : (
-        <Row>
-          {pedidos.map(pedido => (
-            <Col xs={12} key={pedido.id_pedido} className="mb-3">
-              <Card className="shadow-sm">
-                <Card.Body>
-                  <Row className="align-items-center">
-                    <Col md={3}><strong>Pedido #{pedido.id_pedido}</strong><br /><small className="text-muted">{formatearFecha(pedido.fecha)}</small></Col>
-                    <Col md={2}>
-                      <Badge bg={
-                        pedido.estado === "Pendiente" ? "warning" :
-                        pedido.estado === "En preparación" ? "info" :
-                        pedido.estado === "Completado" ? "success" : "danger"
-                      } pill>{pedido.estado}</Badge>
-                    </Col>
-                    {/* ✅ tipoPagoNombre ya resuelto en el pedido directamente */}
-                    <Col md={2}><span className="text-muted">Pago:</span> {pedido.tipoPagoNombre}</Col>
-                    <Col md={2}><strong>Total:</strong> C${pedido.total?.toFixed(2)}</Col>
-                    <Col md={3} className="text-end">
-                      <Button variant="outline-primary" size="sm" onClick={() => verDetalles(pedido, tiposPago)}>
-                        <i className="bi bi-eye me-1"></i> Ver detalles
-                      </Button>
-                    </Col>
-                  </Row>
-                </Card.Body>
-              </Card>
-            </Col>
-          ))}
+    <Container className="mt-4 pt-3">
+      {/* HEADER */}
+      <Row className="align-items-center mb-3">
+        <Col>
+          <h2 style={{ fontWeight: 700, color: "#0c0c2c", margin: 0 }}>
+            <i className="bi bi-receipt me-2" style={{ color: "#ff6a00" }} /> Mis Pedidos
+          </h2>
+        </Col>
+      </Row>
+
+      <hr />
+
+      {/* BUSCADOR + FILTRO */}
+      {pedidos.length > 0 && (
+        <Row className="mb-4">
+          <Col xs={12} md={6}>
+            <CuadroBusquedas
+              textoBusqueda={textoBusqueda}
+              manejarCambioBusqueda={manejarBusqueda}
+              placeholder="Buscar por ID, estado o pago..."
+            />
+          </Col>
+          <Col xs={12} md={6} className="text-md-end mt-2 mt-md-0">
+            <select
+              className="form-select w-auto d-inline"
+              value={estadoFiltro}
+              onChange={(e) => setEstadoFiltro(e.target.value)}
+            >
+              <option value="Todos">Todos los estados</option>
+              <option value="Pendiente">Pendiente</option>
+              <option value="En preparación">En preparación</option>
+              <option value="Completado">Completado</option>
+              <option value="Cancelado">Cancelado</option>
+            </select>
+          </Col>
         </Row>
       )}
+
+      {/* SIN PEDIDOS TOTALES */}
+      {pedidos.length === 0 ? (
+        <Alert variant="info">No has realizado ningún pedido aún.</Alert>
+      ) : pedidosFiltrados.length === 0 ? (
+        <Alert variant="info">No se encontraron pedidos con los filtros aplicados.</Alert>
+      ) : (
+        <>
+          {/* NUEVO DISEÑO: TarjetaPedidoCliente con toda tu lógica */}
+          <TarjetaPedidoCliente
+            pedidos={pedidosPaginados}
+            onVerDetalles={verDetalles}
+            tiposPago={tiposPago}
+          />
+
+          {/* PAGINACIÓN */}
+          <Paginacion
+            registrosPorPagina={registrosPorPagina}
+            totalRegistros={pedidosFiltrados.length}
+            paginaActual={paginaActual}
+            establecerPaginaActual={establecerPaginaActual}
+            establecerRegistrosPorPagina={establecerRegistrosPorPagina}
+          />
+        </>
+      )}
+
       <DetallesPedidoModal
         show={mostrarModal}
         onHide={() => setMostrarModal(false)}

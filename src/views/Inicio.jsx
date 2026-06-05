@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../database/supabaseconfig"; // ← importación necesaria
+import { Html5Qrcode } from "html5-qrcode";
+import { supabase } from "../database/supabaseconfig";
 import Logo from "../assets/Logo.png";
 
 const caracteristicas = [
@@ -26,6 +27,12 @@ export default function Inicio() {
   const [sesionActiva, setSesionActiva] = useState(false);
   const navegar = useNavigate();
 
+  // ───── INTEGRADO: Estados del escáner QR ─────
+  const [mostrarScanner, setMostrarScanner] = useState(false);
+  const [scannerIniciado, setScannerIniciado] = useState(false);
+  const [camaraActiva, setCamaraActiva] = useState(false);
+  const scannerRef = useRef(null);
+
   // Animación de entrada
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 60);
@@ -45,6 +52,84 @@ export default function Inicio() {
     });
     return () => listener?.subscription.unsubscribe();
   }, []);
+
+  // ───── INTEGRADO: Iniciar/detener escáner con cámara trasera ─────
+  useEffect(() => {
+    if (!mostrarScanner) {
+      if (scannerRef.current && scannerIniciado) {
+        scannerRef.current.stop().catch((err) => console.warn("Error al detener escáner:", err));
+        setScannerIniciado(false);
+        setCamaraActiva(false);
+      }
+      return;
+    }
+
+    const iniciarScanner = async () => {
+      const elementId = "qr-reader";
+      const readerElement = document.getElementById(elementId);
+      if (!readerElement) return;
+
+      try {
+        const html5QrCode = new Html5Qrcode(elementId);
+        scannerRef.current = html5QrCode;
+
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+        await html5QrCode.start(
+          { facingMode: "environment" },
+          config,
+          (decodedText) => {
+            let numeroMesa = null;
+            const menuMatch = decodedText.match(/\/menu\/(\d+)/);
+            if (menuMatch) {
+              numeroMesa = parseInt(menuMatch[1], 10);
+            }
+
+            if (numeroMesa && !isNaN(numeroMesa)) {
+              html5QrCode.stop().catch((e) => console.warn(e));
+              setScannerIniciado(false);
+              setCamaraActiva(false);
+              setMostrarScanner(false);
+              localStorage.removeItem("mesa_actual");
+              localStorage.removeItem("mesa_nombre");
+              // ✅ AGREGADO: Establecer modo pedido en local
+              localStorage.setItem("modo_pedido", "en_local");
+              navegar(`/menu/${numeroMesa}`);
+            } else {
+              alert("El código QR no contiene un número de mesa válido.\n\nContenido escaneado: " + decodedText);
+            }
+          },
+          (errorMessage) => {
+            // No mostrar errores continuos
+          }
+        );
+        setScannerIniciado(true);
+        setCamaraActiva(true);
+      } catch (err) {
+        console.error("Error al iniciar la cámara trasera:", err);
+        alert("No se pudo acceder a la cámara trasera. Verifica los permisos.");
+        setMostrarScanner(false);
+      }
+    };
+
+    iniciarScanner();
+
+    return () => {
+      if (scannerRef.current && scannerIniciado) {
+        scannerRef.current.stop().catch((e) => console.warn(e));
+      }
+    };
+  }, [mostrarScanner, navegar]);
+
+  // ───── INTEGRADO: Cerrar escáner ─────
+  const cerrarScanner = () => {
+    if (scannerRef.current && scannerIniciado) {
+      scannerRef.current.stop().catch((e) => console.warn(e));
+    }
+    setMostrarScanner(false);
+    setScannerIniciado(false);
+    setCamaraActiva(false);
+  };
 
   const cerrarSesion = async () => {
     await supabase.auth.signOut();
@@ -94,6 +179,52 @@ export default function Inicio() {
           display: flex; align-items: center; justify-content: center;
           font-size: 1.7rem; margin: 0 auto 18px;
         }
+        .scanner-container {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(0,0,0,0.9);
+          z-index: 1000;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+        }
+        .scanner-box {
+          width: 90%;
+          max-width: 400px;
+          background: #000;
+          border-radius: 20px;
+          overflow: hidden;
+          position: relative;
+        }
+        .scanner-header {
+          display: flex;
+          justify-content: flex-end;
+          padding: 10px;
+        }
+        .close-scanner {
+          background: rgba(255,255,255,0.2);
+          border: none;
+          color: white;
+          font-size: 24px;
+          cursor: pointer;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .close-scanner:hover {
+          background: rgba(255,255,255,0.4);
+        }
+        .scanner-message {
+          text-align: center;
+          color: white;
+          margin-top: 20px;
+          margin-bottom: 20px;
+          font-size: 14px;
+        }
       `}</style>
 
       {/* NAVBAR */}
@@ -131,12 +262,16 @@ export default function Inicio() {
           Pide tu comida favorita de manera rápida y sencilla
         </p>
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-          <button className="btn-outline-dark-custom" onClick={() => navegar("/menu")}>
+          {/* ✅ AGREGADO: Guardar modo_pedido en línea al hacer clic */}
+          <button className="btn-outline-dark-custom" onClick={() => {
+            localStorage.setItem("modo_pedido", "en_linea");
+            navegar("/menu");
+          }}>
             <i className="bi bi-phone" /> Ver Menú
           </button>
           <button
             className="btn-outline-orange-custom"
-            onClick={() => navegar("/escanear")}   // ← NUEVO
+            onClick={() => setMostrarScanner(true)}
           >
             <i className="bi bi-qr-code-scan" /> Escanear Mesa
           </button>
@@ -167,6 +302,25 @@ export default function Inicio() {
           </div>
         ))}
       </div>
+
+      {/* ───── INTEGRADO: MODAL DEL ESCÁNER QR ───── */}
+      {mostrarScanner && (
+        <div className="scanner-container">
+          <div className="scanner-box">
+            <div className="scanner-header">
+              <button className="close-scanner" onClick={cerrarScanner}>
+                <i className="bi bi-x-lg"></i>
+              </button>
+            </div>
+            <div id="qr-reader" style={{ width: "100%", margin: "0 auto" }}></div>
+            <div className="scanner-message">
+              {camaraActiva
+                ? "📷 Apunta al código QR de la mesa (cámara trasera)"
+                : "⏳ Solicitando acceso a la cámara trasera..."}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

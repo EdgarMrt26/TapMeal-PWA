@@ -1,11 +1,14 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../database/supabaseconfig";
 import FormularioRegistro from "../components/registro/FormularioRegistro";
 import Logo from "../assets/Logo.png";
 
 const RegistroCliente = () => {
-  const navegar = useNavigate();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const mesaId = queryParams.get("mesa") || null; // si viene de QR
 
   const [form, setForm] = useState({
     nombre: "",
@@ -32,26 +35,34 @@ const RegistroCliente = () => {
       setError("Por favor completa todos los campos obligatorios.");
       return;
     }
-
     if (form.contrasena !== form.confirmarContrasena) {
       setError("Las contraseñas no coinciden.");
       return;
     }
-
     if (form.contrasena.length < 6) {
       setError("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@gmail\.com$/i;
+    if (!emailRegex.test(form.correo.trim())) {
+      setError("Solo se permiten correos @gmail.com");
       return;
     }
 
     try {
       setCargando(true);
+      const emailLower = form.correo.trim().toLowerCase();
 
-      // 1. Crear usuario en Supabase Auth con rol "cliente" (sin id_cliente aún)
-      const { data, error: errorAuth } = await supabase.auth.signUp({
-        email: form.correo.trim(),
+      // 1. Crear usuario en Auth
+      const { data: authData, error: errorAuth } = await supabase.auth.signUp({
+        email: emailLower,
         password: form.contrasena,
         options: {
-          data: { rol: "cliente" },
+          data: {
+            rol: "cliente",
+            nombre: form.nombre.trim(),
+            apellido: form.apellido.trim(),
+          },
         },
       });
 
@@ -64,34 +75,47 @@ const RegistroCliente = () => {
         return;
       }
 
-      // 2. Insertar en tabla Clientes y obtener el id_cliente generado
+      if (!authData.user) throw new Error("No se pudo obtener el usuario");
+
+      // 2. Insertar en tabla Clientes con auth_user_id
       const { data: nuevoCliente, error: errorCliente } = await supabase
         .from("Clientes")
-        .insert([{
-          nombre_cliente: form.nombre.trim(),
-          apellido_cliente: form.apellido.trim(),
-          telefono: form.telefono.trim() || null,
-          direccion: form.direccion.trim() || null,
-        }])
+        .insert([
+          {
+            auth_user_id: authData.user.id,
+            nombre_cliente: form.nombre.trim(),
+            apellido_cliente: form.apellido.trim(),
+            telefono: form.telefono.trim() || null,
+            direccion: form.direccion.trim() || null,
+          },
+        ])
         .select()
         .single();
 
       if (errorCliente) {
-        console.error("Error al guardar en tabla Clientes:", errorCliente.message);
+        console.error("Error al guardar en Clientes:", errorCliente);
         setError("Error al completar el registro. Contacta al soporte.");
         return;
       }
 
-      // 3. Actualizar los metadatos del usuario con el id_cliente recién creado
+      // 3. Actualizar metadatos del usuario con el id_cliente
       const idCliente = nuevoCliente.id_cliente;
       await supabase.auth.updateUser({
-        data: { rol: "cliente", id_cliente: idCliente }
+        data: {
+          rol: "cliente",
+          id_cliente: idCliente,
+          nombre: form.nombre.trim(),
+          apellido: form.apellido.trim(),
+        },
       });
 
-      // 4. Redirigir al menú (como estaba originalmente)
-      localStorage.setItem("usuario-supabase", form.correo.trim());
-      navegar("/menu");
-
+      // 4. Redirigir según si viene de mesa o no
+      localStorage.setItem("usuario-supabase", emailLower);
+      if (mesaId) {
+        navigate(`/menu/${mesaId}`);
+      } else {
+        navigate("/menu");
+      }
     } catch (err) {
       setError("Error inesperado. Intenta de nuevo.");
       console.error(err);
@@ -108,8 +132,6 @@ const RegistroCliente = () => {
       display: "flex",
       flexDirection: "column",
     }}>
-
-      {/* NAVBAR */}
       <nav style={{
         background: "white", padding: "0 28px", height: 58,
         display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -117,7 +139,7 @@ const RegistroCliente = () => {
       }}>
         <div
           style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}
-          onClick={() => navegar("/")}
+          onClick={() => navigate("/")}
         >
           <img src={Logo} alt="TapMeal" style={{ height: 34, objectFit: "contain" }} />
           <span style={{ fontWeight: 800, fontSize: "1.3rem", color: "#0c0c2c" }}>TapMeal</span>
@@ -128,7 +150,6 @@ const RegistroCliente = () => {
         </div>
       </nav>
 
-      {/* FORMULARIO CENTRADO */}
       <div style={{
         flex: 1, display: "flex", alignItems: "center",
         justifyContent: "center", padding: "32px 24px",
@@ -139,7 +160,7 @@ const RegistroCliente = () => {
           cargando={cargando}
           manejarCambio={manejarCambio}
           registrar={registrar}
-          irALogin={() => navegar("/login")}
+          irALogin={() => navigate(mesaId ? `/login?mesa=${mesaId}` : "/login")}
         />
       </div>
     </div>

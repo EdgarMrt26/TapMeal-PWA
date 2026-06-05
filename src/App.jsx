@@ -13,8 +13,7 @@ import PedidosCliente from "./views/PedidosCliente";
 import DetallePedidoCliente from "./views/DetallePedidoCliente";
 
 // NUEVAS VISTAS
-import Escanear from "./views/Escanear";
-import PaginaMesa from "./views/PaginaMesa";
+import EstadoPedidoMesa from "./views/EstadoPedidoMesa";
 
 // Vistas admin
 import Categorias from "./views/Categorias";
@@ -38,8 +37,10 @@ const RUTAS_SIN_MARGEN = [
 
 const AppContenido = () => {
   const location = useLocation();
-  // ✅ Corrección: también rutas dinámicas como /pedidoCliente/123
-  const sinMargen = RUTAS_SIN_MARGEN.includes(location.pathname) || location.pathname.startsWith('/pedidoCliente/');
+  // ✅ CORREGIDO: También rutas dinámicas como /menu/123
+  const sinMargen = RUTAS_SIN_MARGEN.includes(location.pathname) 
+    || location.pathname.startsWith('/pedidoCliente/')
+    || location.pathname.startsWith('/menu/');
 
   return (
     <>
@@ -51,16 +52,14 @@ const AppContenido = () => {
           <Route path="/login"    element={<Login />} />
           <Route path="/registro" element={<RegistroCliente />} />
           <Route path="/menu"     element={<Menu />} />
+          <Route path="/menu/:idMesa" element={<Menu />} />
           <Route path="/carrito"  element={<Carrito />} />
 
           {/* Ruta para clientes */}
           <Route path="/pedidosCliente" element={<PedidosCliente />} />
           <Route path="/pedidoCliente/:id" element={<DetallePedidoCliente />} />
 
-          {/* NUEVAS RUTAS */}
-          <Route path="/escanear"        element={<Escanear />} />
-          <Route path="/mesa/:id_mesa"   element={<PaginaMesa />} />
-
+          <Route path="/estado-mesa/:idMesa" element={<RutaProtegida rolRequerido="admin"><EstadoPedidoMesa /></RutaProtegida>} />
           {/* Rutas del Admin */}
           <Route path="/categorias" element={<RutaProtegida rolRequerido="admin"><Categorias /></RutaProtegida>} />
           <Route path="/productos"  element={<RutaProtegida rolRequerido="admin"><Productos /></RutaProtegida>} />
