@@ -11,6 +11,7 @@ import Menu from "./views/Menu";
 import Carrito from "./views/Carrito";
 import PedidosCliente from "./views/PedidosCliente";
 import DetallePedidoCliente from "./views/DetallePedidoCliente";
+import Cuenta from "./views/Cuenta";
 
 // NUEVAS VISTAS
 import EstadoPedidoMesa from "./views/EstadoPedidoMesa";
@@ -37,7 +38,6 @@ const RUTAS_SIN_MARGEN = [
 
 const AppContenido = () => {
   const location = useLocation();
-  // ✅ CORREGIDO: También rutas dinámicas como /menu/123
   const sinMargen = RUTAS_SIN_MARGEN.includes(location.pathname) 
     || location.pathname.startsWith('/pedidoCliente/')
     || location.pathname.startsWith('/menu/');
@@ -58,6 +58,7 @@ const AppContenido = () => {
           {/* Ruta para clientes */}
           <Route path="/pedidosCliente" element={<PedidosCliente />} />
           <Route path="/pedidoCliente/:id" element={<DetallePedidoCliente />} />
+          <Route path="/cuenta"  element={<Cuenta />} />
 
           <Route path="/estado-mesa/:idMesa" element={<RutaProtegida rolRequerido="admin"><EstadoPedidoMesa /></RutaProtegida>} />
           {/* Rutas del Admin */}

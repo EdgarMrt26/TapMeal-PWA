@@ -11,16 +11,17 @@ const Estadisticas = () => {
   const [fechaHasta, setFechaHasta] = useState(
     new Date().toLocaleDateString("en-CA")
   );
-  const [visualizacionActiva, setVisualizacionActiva] = useState("vis2");
+  const [visualizacionActiva, setVisualizacionActiva] = useState("vis3");
   const vis2Ref = useRef();
+  const vis3Ref = useRef();
 
   const descargarExcel = () => {
     if (visualizacionActiva === "vis2" && vis2Ref.current) {
       vis2Ref.current.descargarExcel();
+    } else if (visualizacionActiva === "vis3" && vis3Ref.current) {
+      vis3Ref.current.descargarExcel();
     } else if (visualizacionActiva === "vis1") {
       alert("Descarga para Ventas globales aún no implementada");
-    } else if (visualizacionActiva === "vis3") {
-      alert("Descarga para Clientes frecuentes aún no implementada");
     } else {
       alert("Selecciona una visualización válida");
     }
@@ -72,7 +73,7 @@ const Estadisticas = () => {
 
       {visualizacionActiva === "vis1" && <Visualizacion1 fechaDesde={fechaDesde} fechaHasta={fechaHasta} />}
       {visualizacionActiva === "vis2" && <Visualizacion2 ref={vis2Ref} fechaDesde={fechaDesde} fechaHasta={fechaHasta} />}
-      {visualizacionActiva === "vis3" && <Visualizacion3 fechaDesde={fechaDesde} fechaHasta={fechaHasta} />}
+      {visualizacionActiva === "vis3" && <Visualizacion3 ref={vis3Ref} fechaDesde={fechaDesde} fechaHasta={fechaHasta} />}
     </Container>
   );
 };
