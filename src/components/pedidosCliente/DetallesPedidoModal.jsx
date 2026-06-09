@@ -107,7 +107,6 @@ const DetallesPedidoModal = ({ show, onHide, pedido, detalles }) => {
           Productos ordenados:
         </h6>
 
-        {/* SOLO CAMBIÉ ESTO: envolví la tabla en un div con overflow-auto y ancho máximo */}
         <div style={{ overflowX: 'auto', maxWidth: '100%' }}>
           <Table hover className="custom-table mb-0" style={{ minWidth: '600px' }}>
             <thead>
