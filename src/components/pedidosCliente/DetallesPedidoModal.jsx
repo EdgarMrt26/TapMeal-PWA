@@ -148,4 +148,5 @@ const DetallesPedidoModal = ({ show, onHide, pedido, detalles }) => {
   );
 };
 
+
 export default DetallesPedidoModal;
