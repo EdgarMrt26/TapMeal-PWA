@@ -1,146 +1,148 @@
-import React, { useState, useEffect } from "react";
-import { Card, Button, Badge, Spinner } from "react-bootstrap";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "../../database/supabaseconfig";
+import React, { useState, useEffect, useCallback } from "react";
+import { Card, Row, Col, Spinner, Button } from "react-bootstrap";
+import "bootstrap-icons/font/bootstrap-icons.css";
 
-const TarjetaMesaPOS = ({ mesa }) => {
-  const navigate = useNavigate();
-  const [pedidoActivo, setPedidoActivo] = useState(null);
+const TarjetaMesas = ({
+  mesas,
+  abrirModalEdicion,
+  abrirModalEliminacion,
+  generarQRMesa
+
+  
+}) => {
   const [cargando, setCargando] = useState(true);
-  const [completando, setCompletando] = useState(false);
-
-  const cargarPedidoActivo = async () => {
-    try {
-      setCargando(true);
-      const { data, error } = await supabase
-        .from("Pedido")
-        .select("id_pedido, estado, total")
-        .eq("id_mesa", mesa.id_mesa)
-        .in("estado", ["Pendiente", "En preparación"])
-        .order("fecha", { ascending: false })
-        .limit(1)
-        .maybeSingle(); // retorna null si no hay
-
-      if (error) throw error;
-      setPedidoActivo(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setCargando(false);
-    }
-  };
+  const [idTarjetaActiva, setIdTarjetaActiva] = useState(null);
 
   useEffect(() => {
-    cargarPedidoActivo();
+    setCargando(!(mesas && mesas.length > 0));
+  }, [mesas]);
 
-    // Suscripción en tiempo real a cambios en Pedido de esta mesa
-    const subscription = supabase
-      .channel(`pedidos-mesa-${mesa.id_mesa}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "Pedido",
-          filter: `id_mesa=eq.${mesa.id_mesa}`,
-        },
-        () => cargarPedidoActivo()
-      )
-      .subscribe();
+  const manejarTeclaEscape = useCallback((evento) => {
+    if (evento.key === "Escape") setIdTarjetaActiva(null);
+  }, []);
 
-    return () => subscription.unsubscribe();
-  }, [mesa.id_mesa]);
+  useEffect(() => {
+    window.addEventListener("keydown", manejarTeclaEscape);
+    return () => window.removeEventListener("keydown", manejarTeclaEscape);
+  }, [manejarTeclaEscape]);
 
-  const completarPedido = async () => {
-    if (!pedidoActivo) return;
-    setCompletando(true);
-    try {
-      // 1. Cambiar estado del pedido a Completado
-      const { error: errorPedido } = await supabase
-        .from("Pedido")
-        .update({ estado: "Completado" })
-        .eq("id_pedido", pedidoActivo.id_pedido);
-      if (errorPedido) throw errorPedido;
-
-      // 2. Liberar la mesa (por si el trigger no está activo)
-      await supabase
-        .from("Mesas")
-        .update({ estado: "Disponible" })
-        .eq("id_mesa", mesa.id_mesa);
-
-      // Recargar datos
-      await cargarPedidoActivo();
-    } catch (err) {
-      console.error(err);
-      alert("Error al completar el pedido");
-    } finally {
-      setCompletando(false);
-    }
+  const alternarTarjetaActiva = (id) => {
+    setIdTarjetaActiva((anterior) => (anterior === id ? null : id));
   };
-
-  const abrirMesa = () => {
-    localStorage.setItem("idMesa", mesa.id_mesa);
-    localStorage.setItem("nombreMesa", mesa.nombre_mesa);
-    localStorage.setItem("modoPOS", "admin");
-    navigate(`/menu/${mesa.id_mesa}`);
-  };
-
-  const verEstadoPedido = () => {
-    navigate(`/estado-mesa/${mesa.id_mesa}`);
-  };
-
-  const estadoActual = pedidoActivo ? "Ocupada" : "Disponible";
-  const badgeColor = pedidoActivo ? "danger" : "success";
-  const iconoColor = pedidoActivo ? "bi-x-circle-fill text-danger" : "bi-qr-code-scan text-success";
 
   return (
-    <Card className="shadow-sm border-0 h-100 text-center" style={{ borderRadius: "20px" }}>
-      <Card.Body className="p-4">
-        <div className="mb-3">
-          <i className={`bi ${iconoColor}`} style={{ fontSize: "5rem" }} />
+    <>
+      {cargando? (
+        <div className="text-center my-5">
+          <h5>Cargando categorías...</h5>
+          <Spinner animation="border" variant="success" role="status" />
         </div>
-        <h2 className="fw-bold">{mesa.nombre_mesa}</h2>
-        <p className="text-muted mb-3">Mesa #{mesa.id_mesa}</p>
-        <Badge bg={badgeColor} className="px-3 py-2 mb-4">
-          {estadoActual}
-        </Badge>
+      ) : (
+        <div>
+          {mesas.map((mesa) => {
+            const tarjetaActiva = idTarjetaActiva === mesa.id_mesa;
 
-        {cargando ? (
-          <Spinner animation="border" size="sm" />
-        ) : pedidoActivo ? (
-          <>
-            <div className="bg-light p-2 rounded mb-3">
-              <small>Pedido #{pedidoActivo.id_pedido}</small>
-              <br />
-              <strong>Total: C${pedidoActivo.total?.toFixed(2)}</strong>
-            </div>
-            <div className="d-grid gap-2 mb-2">
-              <Button
-                variant="success"
-                onClick={completarPedido}
-                disabled={completando}
-              >
-                {completando ? "Completando..." : "✓ Completar pedido"}
-              </Button>
-            </div>
-          </>
-        ) : (
-          <div className="d-grid gap-2">
-            <Button variant="dark" onClick={abrirMesa}>
-              <i className="bi bi-box-arrow-up-right me-2"></i>Abrir Mesa
-            </Button>
-          </div>
-        )}
+            return (
+              <Card
+                key={mesa.id_mesa}
+                className="mb-3 border-0 rounded-3 shadow-sm w-100 tarjeta-mesa-contenedor"
+                onClick={() => alternarTarjetaActiva(mesa.id_mesa)}
+                tabIndex={0}
+                onKeyDown={(evento) => {
+                  if (evento.key === "Enter" || evento.key === " "){
+                    evento.preventDefault();
+                    alternarTarjetaActiva(mesa.id_mesa);
+                  }
+                }}
+                aria-label={`mesa ${mesa.nombre_mesa}`}
+                >
+                  <Card.Body
+                    className={`p-2 tarjeta-mesa-cuerpo &{
+                        tarjetaActiva
+                        ? "tarjeta-mesa-cuerpo-activo"
+                        ? "tarjeta-mesa-cuerpo-inactivo"
+                      }`}
+                      >
+                        <Row className="align-items-center gx-3">
+                          <Col xs={2} className="px-2">
+                            <div 
+                              className="bg-light d-flex align-items-center justify-content-center rounded tarjeta-mesa-placeholder-imagen"
+                              >
+                                <i className="bi bi-bookmark text-muted fs-3"></i>
+                              </div>
+                          </Col>
+                          <Col xs={5} className="text-start">
+                            <div className="fw-semibold text-truncate">
+                              {mesa.nombre_mesa}
+                            </div>
+                          </Col>
+                          <Col  
+                            xs={5}
+                            className="d-flex flex-column align-items-end justify-content-center text-end"
+                            >
+                              <div className="fw-semibold small">Activa</div>
+                            </Col>
+                        </Row>
+                      </Card.Body>
 
-        <div className="d-grid gap-2 mt-2">
-          <Button variant="outline-dark" onClick={verEstadoPedido}>
-            <i className="bi bi-receipt me-2"></i>
-            {pedidoActivo ? "Ver detalle del pedido" : "Ver historial"}
-          </Button>
+                      {tarjetaActiva && (
+                        <div  
+                          role="dialog"
+                          aria-modal="true"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIdTarjetaActiva(null);
+                          }}
+                          className="tarjeta-categoria-capa"
+                          >
+                            <div
+                              className="d-flex gap-2 tarjeta-categoria-botones-capa"
+                              onClick={(e) => e.stopPropagation()}
+                              >
+                                <Button
+                                  variant="outline-warning"
+                                  size="sm"
+                                  onClick={() => {
+                                    abrirModalEdicion(mesa);
+                                    setIdTarjetaActiva(null);
+                                  }}
+                                  aria-label={`Editar &{categoria.nombre_categoria}`}
+                                  >
+                                    <i className="bi bi-pencil"></i>
+                                  </Button>
+                                    <Button
+                                    variant="outline-info"
+                                    size="sm"
+                                    onClick={() => {
+                                      generarQRMesa(mesa);
+                                      setIdTarjetaActiva(null);
+                                    }}
+                                    aria-label={`Generar QR de ${mesa.nombre_mesa}`}
+                                  >
+                                    <i className="bi bi-qr-code"></i>
+                                  </Button>
+
+                                  <Button 
+                                    variant="outline-danger"
+                                    size="sm"
+                                    onClick={() => {
+                                      abrirModalEliminacion(mesa);
+                                      setIdTarjetaActiva(null);
+                                    }}
+                                    aria-label={`Eliminar ${mesa.nombre_mesa}`}
+                                    >
+                                      <i className="bi bi-trash"></i>
+                                    </Button>
+                              </div>
+                          </div>
+                      )}
+                </Card>
+            )
+          })}
         </div>
-      </Card.Body>
-    </Card>
+      )}
+    </>
   );
 };
 
-export default TarjetaMesaPOS;
+export default TarjetaMesas;

@@ -6,7 +6,8 @@ import "bootstrap-icons/font/bootstrap-icons.css"
 const TablaMesa = ({
   mesas,
   abrirModalEdicion,
-  abrirModalEliminacion
+  abrirModalEliminacion,
+  generarQRMesa
 }) => {
   const [loading, setLoading] = useState(true);
 
@@ -52,6 +53,16 @@ const TablaMesa = ({
                 >
                   <i className="bi bi-pencil"></i>
                 </Button>
+
+                <Button
+                variant="outline-info"
+                size="sm"
+                className="m-1"
+                onClick={() => generarQRMesa(mesas)}
+                title="Generar código QR"
+              >
+                <i className="bi bi-qr-code"></i>
+              </Button>
 
                 <Button
                   variant="outline-danger"

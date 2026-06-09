@@ -1,11 +1,6 @@
 import React from "react";
 import { Modal, Button, Table, Badge } from "react-bootstrap";
-
-/**
- * Muestra una previsualización del pedido recién llegado.
- * El admin puede aceptarlo o rechazarlo.
- */
-const ModalNuevoPedido = ({ pedido, onAceptar, onRechazar, onCerrar }) => {
+const ModalNuevoPedido = ({ pedido, onAceptar, onCerrar }) => {
   if (!pedido) return null;
 
   const cliente = pedido.Clientes
@@ -21,13 +16,12 @@ const ModalNuevoPedido = ({ pedido, onAceptar, onRechazar, onCerrar }) => {
     <Modal show={!!pedido} onHide={onCerrar} centered size="lg">
       <Modal.Header closeButton className="bg-warning-subtle">
         <Modal.Title>
-          <i className="bi bi-bell-fill me-2 text-warning" />
+          <i className="bi me-2 text-warning" />
           Nuevo pedido #{pedido.id_pedido}
         </Modal.Title>
       </Modal.Header>
 
       <Modal.Body>
-        {/* Info general */}
         <div className="d-flex flex-wrap gap-3 mb-3">
           <div>
             <small className="text-muted d-block">Cliente</small>
@@ -57,7 +51,6 @@ const ModalNuevoPedido = ({ pedido, onAceptar, onRechazar, onCerrar }) => {
           </div>
         </div>
 
-        {/* Detalle de platillos */}
         <Table size="sm" bordered hover responsive>
           <thead className="table-dark">
             <tr>
@@ -97,10 +90,6 @@ const ModalNuevoPedido = ({ pedido, onAceptar, onRechazar, onCerrar }) => {
       </Modal.Body>
 
       <Modal.Footer>
-        <Button variant="outline-danger" onClick={() => onRechazar(pedido)}>
-          <i className="bi bi-x-circle me-1" />
-          Rechazar
-        </Button>
         <Button variant="success" onClick={() => onAceptar(pedido)}>
           <i className="bi bi-check-circle me-1" />
           Aceptar pedido

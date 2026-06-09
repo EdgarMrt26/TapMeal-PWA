@@ -20,7 +20,7 @@ const Menu = () => {
   const { idMesa } = useParams();
   const [nombreMesa, setNombreMesa] = useState("");
 
-  // ✅ INTEGRADO: Manejo de mesa por QR
+  // Manejo de mesa por QR / URL
   useEffect(() => {
     if (idMesa) {
       const idNumerico = parseInt(idMesa, 10);
@@ -30,9 +30,8 @@ const Menu = () => {
         localStorage.removeItem("mesa_nombre");
       }
       localStorage.setItem("mesa_actual", idNumerico);
-      // ✅ AGREGADO: Establecer modo pedido en local
       localStorage.setItem("modo_pedido", "en_local");
-      
+
       const cargarNombreMesa = async () => {
         try {
           const { data, error } = await supabase
@@ -58,6 +57,7 @@ const Menu = () => {
     }
   }, [idMesa]);
 
+  // Inicialización: carga datos y valida rol
   useEffect(() => {
     const inicializar = async () => {
       try {
@@ -67,11 +67,14 @@ const Menu = () => {
         const session = sessionData?.session;
         const rol = session?.user?.user_metadata?.rol;
 
-        if (rol === "admin") { navegar("/categorias"); return; }
-        
+        // ✅ CORRECCIÓN: Solo redirige si es admin Y no hay una mesa específica
+        if (rol === "admin" && !idMesa) {
+          navegar("/categorias");
+          return;
+        }
+
         if (session && rol === "cliente") {
           setSesionActiva(true);
-          // ✅ INTEGRADO: Obtener nombre del cliente
           const metadata = session.user.user_metadata;
           const nombre = metadata?.nombre || "";
           const apellido = metadata?.apellido || "";
@@ -98,7 +101,7 @@ const Menu = () => {
       }
     };
     inicializar();
-  }, []);
+  }, [idMesa, navegar]);
 
   const platillosFiltrados = useMemo(() => {
     let filtrados = platillos;
@@ -122,8 +125,6 @@ const Menu = () => {
 
   return (
     <div style={{ minHeight: "100vh", background: "#fafafa", fontFamily: "'Segoe UI', sans-serif" }}>
-
-      {/* BANNER INVITADO */}
       {!sesionActiva && (
         <div style={{
           background: "rgba(255,106,0,0.06)", borderBottom: "1px solid rgba(255,106,0,0.15)",
@@ -141,30 +142,21 @@ const Menu = () => {
         </div>
       )}
 
-      {/* BOTÓN CARRITO FLOTANTE */}
       <BotonCarrito visible={sesionActiva} />
 
-      {/* CONTENIDO */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 20px" }}>
-
         <div style={{ marginBottom: 24 }}>
           <h2 style={{ fontWeight: 800, color: "#0c0c2c", marginBottom: 4 }}>Menú</h2>
-          
-          {/* ✅ INTEGRADO: Badge de mesa */}
           {nombreMesa && (
             <Badge bg="dark" className="mt-2">
               <i className="bi bi-table me-1"></i> {nombreMesa}
             </Badge>
           )}
-          
-          {/* ✅ INTEGRADO: Indicador de pedido en línea */}
           {!idMesa && (
             <div className="text-muted small mt-2">
               <i className="bi bi-info-circle"></i> Pedido en línea
             </div>
           )}
-          
-          {/* ✅ INTEGRADO: Nombre del cliente */}
           {sesionActiva && nombreCliente && (
             <div style={{
               marginTop: 12, fontSize: "0.9rem",
@@ -177,7 +169,6 @@ const Menu = () => {
           )}
         </div>
 
-        {/* Buscador */}
         <div style={{ marginBottom: 20, maxWidth: 400 }}>
           <div style={{
             display: "flex", alignItems: "center", gap: 8, background: "white",
@@ -193,7 +184,6 @@ const Menu = () => {
           </div>
         </div>
 
-        {/* Filtros categoría */}
         {!cargando && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
             <button

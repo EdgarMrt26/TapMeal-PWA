@@ -17,6 +17,7 @@ import TarjetaMesaPOS from "../components/mesas/TarjetaMesaPOS";
 import NotificacionOperacion from "../components/NotificacionOperacion";
 import CuadroBusquedas from "../components/busquedas/CuadroBusqueda";
 import Paginacion from "../components/ordenamiento/Paginacion";
+import ModalQRMesa from "../components/mesas/ModalQRMesa";
 
 const Mesas = () => {
   const [toast, setToast] = useState({ mostrar: false, mensaje: "", tipo: "" });
@@ -33,6 +34,15 @@ const Mesas = () => {
   const [mesasFiltradas, setMesasFiltradas] = useState([]);
   const [registrosPorPagina, establecerRegistrosPorPagina] = useState(6);
   const [paginaActual, establecerPaginaActual] = useState(1);
+
+  const [mostrarModalQR, setMostrarModalQR] = useState(false);
+const [mesaSeleccionadaQR, setMesaSeleccionadaQR] = useState(null);
+
+// Método que se pasa a los componentes:
+const generarQRMesa = (mesa) => {
+  setMesaSeleccionadaQR(mesa);
+  setMostrarModalQR(true);
+};
 
   const cargarMesas = async () => {
     try {
@@ -155,8 +165,20 @@ const Mesas = () => {
       {!cargando && mesasFiltradas.length === 0 && <Alert variant="info">No se encontraron mesas.</Alert>}
       {modoVista === "admin" && !cargando && mesasFiltradas.length > 0 && (
         <Row>
-          <Col xs={12} className="d-lg-none"><TarjetaMesas mesas={mesasPaginadas} abrirModalEdicion={abrirModalEdicion} abrirModalEliminacion={abrirModalEliminacion} /></Col>
-          <Col lg={12} className="d-none d-lg-block"><TablaMesa mesas={mesasPaginadas} abrirModalEdicion={abrirModalEdicion} abrirModalEliminacion={abrirModalEliminacion} /></Col>
+          <Col xs={12} className="d-lg-none">
+          <TarjetaMesas mesas={mesasPaginadas}
+          abrirModalEdicion={abrirModalEdicion} 
+          abrirModalEliminacion={abrirModalEliminacion} 
+          generarQRMesa={generarQRMesa} 
+          />
+          </Col>
+          <Col lg={12} className="d-none d-lg-block">
+          <TablaMesa mesas={mesasPaginadas} 
+          abrirModalEdicion={abrirModalEdicion} 
+          abrirModalEliminacion={abrirModalEliminacion} 
+          generarQRMesa={generarQRMesa} 
+          />
+          </Col>
         </Row>
       )}
       {modoVista === "pos" && !cargando && (
@@ -169,12 +191,44 @@ const Mesas = () => {
         </Row>
       )}
       {modoVista === "admin" && mesasFiltradas.length > 0 && (
-        <Paginacion registrosPorPagina={registrosPorPagina} totalRegistros={mesasFiltradas.length} paginaActual={paginaActual} establecerPaginaActual={establecerPaginaActual} establecerRegistrosPorPagina={establecerRegistrosPorPagina} />
+        <Paginacion 
+        registrosPorPagina={registrosPorPagina} 
+        totalRegistros={mesasFiltradas.length}
+        paginaActual={paginaActual} 
+        establecerPaginaActual={establecerPaginaActual} 
+        establecerRegistrosPorPagina={establecerRegistrosPorPagina} 
+        />
       )}
-      <ModalRegistroMesa mostrarModal={mostrarModal} setMostrarModal={setMostrarModal} nuevaMesa={nuevaMesa} manejoCambioInput={manejoCambioInput} agregarMesa={agregarMesa} />
-      <ModalEdicionMesa mostrarModalEdicion={mostrarModalEdicion} setMostrarModalEdicion={setMostrarModalEdicion} mesaEditar={mesaEditar} manejoCambioInputEdicion={manejoCambioInputEdicion} actualizarMesa={actualizarMesa} />
-      <ModalEliminacionMesa mostrarModalEliminacion={mostrarModalEliminacion} setMostrarModalEliminacion={setMostrarModalEliminacion} eliminarMesa={eliminarMesa} mesa={mesaAEliminar} />
-      <NotificacionOperacion mostrar={toast.mostrar} mensaje={toast.mensaje} tipo={toast.tipo} onCerrar={() => setToast({ ...toast, mostrar: false })} />
+      <ModalRegistroMesa mostrarModal={mostrarModal} 
+      setMostrarModal={setMostrarModal} 
+      nuevaMesa={nuevaMesa} 
+      manejoCambioInput={manejoCambioInput} 
+      agregarMesa={agregarMesa} 
+      />
+      <ModalEdicionMesa 
+      mostrarModalEdicion={mostrarModalEdicion} 
+      setMostrarModalEdicion={setMostrarModalEdicion} 
+      mesaEditar={mesaEditar} 
+      manejoCambioInputEdicion={manejoCambioInputEdicion} 
+      actualizarMesa={actualizarMesa}
+      />
+      <ModalEliminacionMesa 
+      mostrarModalEliminacion={mostrarModalEliminacion} 
+      setMostrarModalEliminacion={setMostrarModalEliminacion} 
+      eliminarMesa={eliminarMesa} 
+      mesa={mesaAEliminar} 
+      />
+      
+      <ModalQRMesa
+      mostrarModalQR={mostrarModalQR}
+      setMostrarModalQR={setMostrarModalQR}
+      mesaSeleccionada={mesaSeleccionadaQR}
+    />
+    
+      <NotificacionOperacion 
+      mostrar={toast.mostrar} 
+      mensaje={toast.mensaje} 
+      tipo={toast.tipo} onCerrar={() => setToast({ ...toast, mostrar: false })} />
     </Container>
   );
 };

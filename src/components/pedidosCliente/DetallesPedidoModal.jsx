@@ -107,11 +107,40 @@ const DetallesPedidoModal = ({ show, onHide, pedido, detalles }) => {
           Productos ordenados:
         </h6>
 
-        <div style={{ overflowX: 'auto', maxWidth: '100%' }}>
-          <Table hover className="custom-table mb-0" style={{ minWidth: '600px' }}>
+        {/* Vista móvil: tarjetas */}
+        <div className="d-md-none">
+          {detalles.map((det, idx) => {
+            const precioUnit = det.precio_unitario || 0;
+            const subtotal = precioUnit * det.cantidad;
+            return (
+              <div key={idx} className="border rounded-3 p-3 mb-2 bg-white shadow-sm">
+                <div className="d-flex justify-content-between align-items-start mb-1">
+                  <span className="fw-bold text-dark">{det.Platillos?.nombre_platillo || "N/A"}</span>
+                  <span className="fw-bold text-dark ms-2">C${subtotal.toFixed(2)}</span>
+                </div>
+                <div className="text-muted small">
+                  <span>Cant: <strong>{det.cantidad}</strong></span>
+                  <span className="mx-2">·</span>
+                  <span>Precio: C${precioUnit.toFixed(2)}</span>
+                </div>
+                {(det.Extras?.descripcion || det.Salsas?.descripcion) && (
+                  <div className="text-muted small mt-1">
+                    {det.Extras?.descripcion && <span>Extra: {det.Extras.descripcion}</span>}
+                    {det.Extras?.descripcion && det.Salsas?.descripcion && <span className="mx-1">·</span>}
+                    {det.Salsas?.descripcion && <span>Salsa: {det.Salsas.descripcion}</span>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Vista escritorio: tabla normal */}
+        <div className="d-none d-md-block">
+          <Table hover className="custom-table mb-0">
             <thead>
               <tr>
-                <th className="text-center" style={{ width: "80px" }}>Cant.</th>
+                <th className="text-center" style={{ width: "60px" }}>Cant.</th>
                 <th>Platillo</th>
                 <th>Extra</th>
                 <th>Salsa</th>
@@ -137,6 +166,7 @@ const DetallesPedidoModal = ({ show, onHide, pedido, detalles }) => {
             </tbody>
           </Table>
         </div>
+
       </Modal.Body>
       <Modal.Footer className="border-0 pt-0">
         <button className="btn btn-dark px-4 rounded-3 shadow-sm" onClick={onHide}>
@@ -146,6 +176,5 @@ const DetallesPedidoModal = ({ show, onHide, pedido, detalles }) => {
     </Modal>
   );
 };
-
 
 export default DetallesPedidoModal;
