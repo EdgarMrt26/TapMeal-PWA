@@ -285,8 +285,15 @@ const Carrito = () => {
                       </div>
 
                       {/* Info */}
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "#0c0c2c" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ 
+                          fontWeight: 700, 
+                          fontSize: "0.92rem", 
+                          color: "#0c0c2c",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap"
+                        }}>
                           {item.nombre_platillo}
                         </div>
                         {item.extraSeleccionado && (
