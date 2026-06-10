@@ -5,7 +5,8 @@ import "bootstrap-icons/font/bootstrap-icons.css";
 const TarjetaMesas = ({
   mesas,
   abrirModalEdicion,
-  abrirModalEliminacion
+  abrirModalEliminacion,
+  generarQRMesa
 
   
 }) => {
@@ -108,6 +109,17 @@ const TarjetaMesas = ({
                                   aria-label={`Editar &{categoria.nombre_categoria}`}
                                   >
                                     <i className="bi bi-pencil"></i>
+                                  </Button>
+                                    <Button
+                                    variant="outline-info"
+                                    size="sm"
+                                    onClick={() => {
+                                      generarQRMesa(mesa);
+                                      setIdTarjetaActiva(null);
+                                    }}
+                                    aria-label={`Generar QR de ${mesa.nombre_mesa}`}
+                                  >
+                                    <i className="bi bi-qr-code"></i>
                                   </Button>
 
                                   <Button 
