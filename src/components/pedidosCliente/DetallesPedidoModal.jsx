@@ -1,16 +1,8 @@
-import React, { useState, useEffect } from "react";
-import { Modal, Table, Row, Col } from "react-bootstrap";
+import React from "react";
+import { Modal, Row, Col } from "react-bootstrap";
 import "bootstrap-icons/font/bootstrap-icons.css";
 
 const DetallesPedidoModal = ({ show, onHide, pedido, detalles }) => {
-  const [esMobil, setEsMobil] = useState(window.innerWidth < 768);
-
-  useEffect(() => {
-    const handleResize = () => setEsMobil(window.innerWidth < 768);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
   if (!pedido) return null;
 
   const formatearFecha = (fecha) => {
@@ -61,6 +53,11 @@ const DetallesPedidoModal = ({ show, onHide, pedido, detalles }) => {
     return "bi-credit-card text-muted";
   };
 
+  const totalGeneral = detalles.reduce(
+    (acc, d) => acc + (d.precio_unitario || 0) * d.cantidad,
+    0
+  );
+
   return (
     <Modal show={show} onHide={onHide} size="lg" centered>
       <Modal.Header closeButton className="border-0 pb-0">
@@ -69,6 +66,7 @@ const DetallesPedidoModal = ({ show, onHide, pedido, detalles }) => {
           Detalles del Pedido {pedido.id_pedido}
         </Modal.Title>
       </Modal.Header>
+
       <Modal.Body className="pt-4">
         <Row className="mb-4">
           <Col sm={6}>
@@ -101,79 +99,55 @@ const DetallesPedidoModal = ({ show, onHide, pedido, detalles }) => {
         </Row>
 
         <hr />
+
         <h6 className="fw-bold mb-3">
           <i className="bi bi-bag-check me-2 text-success"></i>
           Productos ordenados:
         </h6>
 
-        {/* Vista móvil: tarjetas */}
-        {esMobil ? (
-          <div>
-            {detalles.map((det, idx) => {
-              const precioUnit = det.precio_unitario || 0;
-              const subtotal = precioUnit * det.cantidad;
-              return (
-                <div key={idx} className="border rounded-3 p-3 mb-2 bg-white shadow-sm">
-                  <div className="d-flex justify-content-between align-items-start mb-1">
-                    <span className="fw-bold text-dark">{det.Platillos?.nombre_platillo || "N/A"}</span>
-                    <span className="fw-bold text-success ms-2">C${subtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="text-muted small">
-                    <span>Cant: <strong>{det.cantidad}</strong></span>
-                    <span className="mx-2">·</span>
-                    <span>Precio unit: C${precioUnit.toFixed(2)}</span>
-                  </div>
-                  {(det.Extras?.descripcion || det.Salsas?.descripcion) && (
-                    <div className="text-muted small mt-1">
-                      {det.Extras?.descripcion && <span>Extra: {det.Extras.descripcion}</span>}
-                      {det.Extras?.descripcion && det.Salsas?.descripcion && <span className="mx-1">·</span>}
-                      {det.Salsas?.descripcion && <span>Salsa: {det.Salsas.descripcion}</span>}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            {/* Total móvil */}
-            <div className="d-flex justify-content-end mt-2">
-              <span className="fw-bold text-muted me-2">Total general:</span>
-              <span className="fw-bold text-success">
-                C${detalles.reduce((acc, d) => acc + (d.precio_unitario || 0) * d.cantidad, 0).toFixed(2)}
-              </span>
+        {detalles.map((det, idx) => {
+          const precioUnit = det.precio_unitario || 0;
+          const subtotal = precioUnit * det.cantidad;
+          return (
+            <div key={idx} className="border rounded-3 p-3 mb-2 bg-white shadow-sm">
+              <div className="d-flex justify-content-between align-items-start mb-1">
+                <span className="fw-bold text-dark" style={{ flex: 1, marginRight: "8px" }}>
+                  {det.Platillos?.nombre_platillo || "N/A"}
+                </span>
+                <span className="fw-bold text-success text-nowrap">
+                  C${subtotal.toFixed(2)}
+                </span>
+              </div>
+              <div className="text-muted small d-flex flex-wrap gap-2">
+                <span>Cant: <strong>{det.cantidad}</strong></span>
+                <span>·</span>
+                <span>P. Unit: <strong>C${precioUnit.toFixed(2)}</strong></span>
+                {det.Extras?.descripcion && (
+                  <>
+                    <span>·</span>
+                    <span>Extra: <strong>{det.Extras.descripcion}</strong></span>
+                  </>
+                )}
+                {det.Salsas?.descripcion && (
+                  <>
+                    <span>·</span>
+                    <span>Salsa: <strong>{det.Salsas.descripcion}</strong></span>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        ) : (
-          /* Vista escritorio: tabla */
-          <Table hover className="custom-table mb-0">
-            <thead>
-              <tr>
-                <th className="text-center" style={{ width: "60px" }}>Cant.</th>
-                <th>Platillo</th>
-                <th>Extra</th>
-                <th>Salsa</th>
-                <th>Precio Unit.</th>
-                <th className="text-end">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              {detalles.map((det, idx) => {
-                const precioUnit = det.precio_unitario || 0;
-                const subtotal = precioUnit * det.cantidad;
-                return (
-                  <tr key={idx}>
-                    <td className="text-center fw-bold">{det.cantidad}</td>
-                    <td className="fw-semibold text-dark">{det.Platillos?.nombre_platillo || "N/A"}</td>
-                    <td>{det.Extras?.descripcion || "-"}</td>
-                    <td>{det.Salsas?.descripcion || "-"}</td>
-                    <td>C${precioUnit.toFixed(2)}</td>
-                    <td className="text-end fw-bold text-dark">C${subtotal.toFixed(2)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </Table>
-        )}
+          );
+        })}
+
+        <div className="d-flex justify-content-between align-items-center mt-3 px-1">
+          <span className="fw-bold text-muted">Total general:</span>
+          <span className="fw-bold text-success fs-5">
+            C${totalGeneral.toFixed(2)}
+          </span>
+        </div>
 
       </Modal.Body>
+
       <Modal.Footer className="border-0 pt-0">
         <button className="btn btn-dark px-4 rounded-3 shadow-sm" onClick={onHide}>
           Cerrar
