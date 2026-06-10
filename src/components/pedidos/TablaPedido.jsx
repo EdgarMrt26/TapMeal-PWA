@@ -6,17 +6,15 @@ const TablaPedido = ({
   pedidos,
   abrirModalEdicion,
   abrirModalEliminacion,
-  onVerVoucher,    // nueva prop
-  onVerFactura     // nueva prop
+  onVerVoucher,
+  onVerFactura,
+  onVerDetalles   // nueva prop
 }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (pedidos && pedidos.length > 0) {
-      setLoading(false);
-    } else {
-      setLoading(true);
-    }
+    if (pedidos && pedidos.length > 0) setLoading(false);
+    else setLoading(true);
   }, [pedidos]);
 
   return (
@@ -44,50 +42,35 @@ const TablaPedido = ({
             {pedidos.map((pedido) => (
               <tr key={pedido.id_pedido}>
                 <td>{pedido.id_pedido}</td>
-
-                <td>
-                  {pedido.fecha
-                    ? new Date(pedido.fecha).toLocaleString()
-                    : "N/A"}
-                </td>
-
+                <td>{pedido.fecha ? new Date(pedido.fecha).toLocaleString() : "N/A"}</td>
                 <td>
                   {pedido.Clientes
                     ? `${pedido.Clientes.nombre_cliente} ${pedido.Clientes.apellido_cliente}`
                     : "N/A"}
                 </td>
-
+                <td>{pedido.Tipo_pedido?.descripcion || "N/A"}</td>
+                <td>{pedido.Mesas ? `Mesa ${pedido.Mesas.id_mesa}` : "N/A"}</td>
                 <td>
-                  {pedido.Tipo_pedido
-                    ? pedido.Tipo_pedido.descripcion
-                    : "N/A"}
-                </td>
-
-                <td>
-                  {pedido.Mesas
-                    ? `Mesa ${pedido.Mesas.id_mesa}`
-                    : "N/A"}
-                </td>
-
-                <td>
-                  <span
-                    className={`badge bg-${
-                      pedido.estado === "Completado"
-                        ? "success"
-                        : pedido.estado === "Cancelado"
-                        ? "danger"
-                        : "warning"
-                    }`}
-                  >
+                  <span className={`badge bg-${
+                    pedido.estado === "Completado" ? "success" :
+                    pedido.estado === "Cancelado" ? "danger" : "warning"
+                  }`}>
                     {pedido.estado}
                   </span>
                 </td>
-
-                <td>
-                  ${pedido.total?.toFixed(2) || "0.00"}
-                </td>
-
+                <td>${pedido.total?.toFixed(2) || "0.00"}</td>
                 <td className="text-center">
+                  {/* NUEVO: ver detalles */}
+                  <Button
+                    variant="outline-primary"
+                    size="sm"
+                    className="m-1"
+                    onClick={() => onVerDetalles(pedido)}
+                    title="Ver detalle del pedido"
+                  >
+                    <i className="bi bi-eye"></i>
+                  </Button>
+
                   <Button
                     variant="outline-info"
                     size="sm"

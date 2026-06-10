@@ -280,3 +280,30 @@
   background: #dc3545;
   color: white;
 }
+
+/* Truncado limpio para descripción */
+.celda-descripcion {
+  max-width: 220px;
+  min-width: 150px;
+}
+
+.texto-truncado {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Al hover: muestra el texto completo sin romper la tabla */
+.celda-descripcion:hover .texto-truncado {
+  white-space: normal;
+  word-break: break-word;
+  background-color: white;
+  position: absolute;
+  z-index: 10;
+  width: auto;
+  max-width: 280px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  padding: 4px 8px;
+  border-radius: 6px;
+}

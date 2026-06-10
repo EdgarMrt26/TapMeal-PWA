@@ -165,6 +165,18 @@ const TarjetaPedido = ({
                       >
                         <i className="bi bi-trash"></i>
                       </Button>
+
+                      <Button
+                        variant="outline-primary"
+                        size="sm"
+                        onClick={() => {
+                          onVerDetalles(pedido);
+                          setIdTarjetaActiva(null);
+                        }}
+                        title="Ver detalle del pedido"
+                      >
+                        <i className="bi bi-eye"></i>
+                      </Button>
                     </div>
                   </div>
                 )}

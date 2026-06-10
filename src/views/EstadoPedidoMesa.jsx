@@ -17,7 +17,6 @@ const EstadoPedidoMesa = () => {
     const cargarDatos = async () => {
       try {
         setCargando(true);
-        // Pedido activo (Pendiente o En preparación)
         const { data: pedidoData, error: pedidoError } = await supabase
           .from("Pedido")
           .select(`
@@ -51,7 +50,6 @@ const EstadoPedidoMesa = () => {
           setDetalles([]);
         }
 
-        // Historial de pedidos anteriores (Completado/Cancelado)
         const { data: historialData } = await supabase
           .from("Pedido")
           .select(`id_pedido, estado, total, fecha, Clientes (nombre_cliente, apellido_cliente)`)
@@ -79,12 +77,6 @@ const EstadoPedidoMesa = () => {
     }
   };
 
-  const abrirMesa = () => {
-    localStorage.setItem("idMesa", idMesa);
-    localStorage.setItem("modoPOS", "admin");
-    navigate(`/menu/${idMesa}`);
-  };
-
   if (cargando) return <div className="text-center mt-5"><Spinner animation="border" /></div>;
   if (error) return <Alert variant="danger">{error}</Alert>;
 
@@ -106,8 +98,11 @@ const EstadoPedidoMesa = () => {
             <i className="bi bi-cup-straw" style={{ fontSize: "4rem", color: "#6c757d" }}></i>
             <h4 className="mt-3">No hay pedidos activos</h4>
             <p className="text-muted">Esta mesa no tiene ningún pedido pendiente o en preparación.</p>
-            <Button variant="primary" onClick={abrirMesa}>
-              <i className="bi bi-box-arrow-up-right me-2"></i>Abrir mesa para nuevo pedido
+            <Button
+              variant="dark"
+              onClick={() => navigate("/pedidos", { state: { abrirNuevoPedido: true, idMesa } })}
+            >
+              <i className="bi bi-plus-circle me-2"></i>Registrar pedido para esta mesa
             </Button>
           </Card.Body>
         </Card>

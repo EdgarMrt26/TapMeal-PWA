@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { supabase } from "../database/supabaseconfig";
 import { Container, Row, Col, Button, Spinner, Alert } from "react-bootstrap";
 import ModalRegistroPedido from "../components/pedidos/ModalRegistroPedido";
@@ -9,13 +10,14 @@ import TarjetaPedido from "../components/pedidos/TarjetaPedido";
 import NotificacionOperacion from "../components/NotificacionOperacion";
 import CuadroBusquedas from "../components/busquedas/CuadroBusqueda";
 import Paginacion from "../components/ordenamiento/Paginacion";
-// ── Se han eliminado los imports de VoucherPedido y FacturaPedido ──
-// ── NUEVO ──
 import ModalNuevoPedido from "../components/pedidos/ModalNuevoPedido";
 import CampanaPedidos from "../components/pedidos/CampanaPedidos";
 import useNotificacionesPedidos from "../hooks/useNotificacionesPedidos";
+import ModalDetallesPedidoAdm from "../components/pedidos/ModalDetallesPedidoAdm";
 
 const Pedidos = () => {
+  const location = useLocation();
+
   const [toast, setToast] = useState({ mostrar: false, mensaje: "", tipo: "" });
   const [pedidos, setPedidos] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -34,12 +36,16 @@ const Pedidos = () => {
   const [mesas, setMesas] = useState([]);
   const [platillos, setPlatillos] = useState([]);
   const [extrasCatalogo, setExtrasCatalogo] = useState([]);
+  const [tiposPago, setTiposPago] = useState([]);
 
   // Modales
   const [mostrarModalRegistro, setMostrarModalRegistro] = useState(false);
   const [mostrarModalEdicion, setMostrarModalEdicion] = useState(false);
   const [mostrarModalEliminacion, setMostrarModalEliminacion] = useState(false);
-  // ── Estados de voucher y factura eliminados ──
+
+  // Estados nuevos
+  const [mostrarModalDetalles, setMostrarModalDetalles] = useState(false);
+  const [pedidoDetalles, setPedidoDetalles] = useState(null);
 
   const [detallesPedido, setDetallesPedido] = useState([]);
 
@@ -48,7 +54,8 @@ const Pedidos = () => {
     id_tipo: "",
     id_mesa: "",
     estado: "Pendiente",
-    total: 0
+    total: 0,
+    id_tipo_pago: "",
   });
 
   const [pedidoEditar, setPedidoEditar] = useState({
@@ -65,6 +72,18 @@ const Pedidos = () => {
   // ── NUEVO: notificaciones en tiempo real ──
   const { pedidosPendientes, descartarPedido } = useNotificacionesPedidos();
   const pedidoEnRevision = pedidosPendientes[0] ?? null;
+
+  // ── Abrir modal de registro con mesa preseleccionada desde EstadoPedidoMesa ──
+  useEffect(() => {
+    if (location.state?.abrirNuevoPedido && location.state?.idMesa) {
+      setNuevoPedido((prev) => ({
+        ...prev,
+        id_mesa: location.state.idMesa,
+      }));
+      setMostrarModalRegistro(true);
+      window.history.replaceState({}, "");
+    }
+  }, [location.state]);
 
   // ── NUEVO: aceptar pedido ──
   const handleAceptarPedido = async (pedido) => {
@@ -104,12 +123,13 @@ const Pedidos = () => {
 
   const cargarCatalogos = async () => {
     try {
-      const [resClientes, resTipos, resMesas, resPlatillos, resExtras] = await Promise.all([
+      const [resClientes, resTipos, resMesas, resPlatillos, resExtras, resTiposPago] = await Promise.all([
         supabase.from("Clientes").select("id_cliente, nombre_cliente, apellido_cliente"),
         supabase.from("Tipo_pedido").select("id_tipo, descripcion"),
         supabase.from("Mesas").select("id_mesa"),
         supabase.from("Platillos").select("id_platillo, nombre_platillo, precio"),
-        supabase.from("Extras").select("id_extra, descripcion, precio")
+        supabase.from("Extras").select("id_extra, descripcion, precio"),
+        supabase.from("Tipo_pago").select("id_tipo_pago, descripcion"),
       ]);
 
       if (resClientes.data) setClientes(resClientes.data);
@@ -117,6 +137,7 @@ const Pedidos = () => {
       if (resMesas.data) setMesas(resMesas.data);
       if (resPlatillos.data) setPlatillos(resPlatillos.data);
       if (resExtras.data) setExtrasCatalogo(resExtras.data);
+      if (resTiposPago.data) setTiposPago(resTiposPago.data);
     } catch (err) {
       console.error("Error al cargar catálogos:", err);
     }
@@ -200,7 +221,8 @@ const Pedidos = () => {
           id_mesa: parseInt(nuevoPedido.id_mesa),
           estado: nuevoPedido.estado,
           total: parseFloat(nuevoPedido.total),
-          fecha: new Date().toISOString()
+          fecha: new Date().toISOString(),
+          id_tipo_pago: nuevoPedido.id_tipo_pago ? parseInt(nuevoPedido.id_tipo_pago) : null,
         }])
         .select();
 
@@ -279,13 +301,6 @@ const Pedidos = () => {
     setMostrarModalEliminacion(true);
   };
 
-  // ─────────────────────────────────────────────────────────────────
-  // NUEVAS FUNCIONES DE IMPRESIÓN DIRECTA (reemplazan a los modales)
-  // ─────────────────────────────────────────────────────────────────
-
-  /**
-   * Obtiene los detalles de un pedido desde Supabase
-   */
   const obtenerDetallesPedido = async (idPedido) => {
     const { data: detallesData, error } = await supabase
       .from("Detalle_pedido")
@@ -300,9 +315,6 @@ const Pedidos = () => {
     return detallesData || [];
   };
 
-  /**
-   * Genera el texto para el VOUCHER de cocina (sin precios)
-   */
   const generarTextoVoucher = (pedido, detalles) => {
     const fecha = pedido.fecha
       ? new Date(pedido.fecha).toLocaleString("es-NI")
@@ -336,61 +348,53 @@ const Pedidos = () => {
     return texto;
   };
 
-  /**
-   * Genera el texto para la FACTURA (con precios e IVA)
-   */
   const generarTextoFactura = (pedido, detalles) => {
-  // Calculamos el subtotal sumando los importes de cada línea
-  const subtotal = detalles.reduce((acc, det) => {
-    return acc + (det.cantidad * det.precio_unitario);
-  }, 0);
-  
-  const iva = subtotal * 0.15;
-  const total = subtotal + iva;
-  const fecha = pedido.fecha
-    ? new Date(pedido.fecha).toLocaleString("es-NI")
-    : "-";
-  const mesa = pedido.Mesas?.id_mesa || "N/A";
-  const cliente =
-    `${pedido.Clientes?.nombre_cliente || ""} ${pedido.Clientes?.apellido_cliente || ""}`.trim() ||
-    "Mostrador";
+    const subtotal = detalles.reduce((acc, det) => {
+      return acc + (det.cantidad * det.precio_unitario);
+    }, 0);
 
-  let texto = "IT'S COFFEE TIME - FACTURA\n";
-  texto += "================================\n";
-  texto += `Pedido N°: ${pedido.id_pedido}\n`;
-  texto += `Fecha    : ${fecha}\n`;
-  texto += `Mesa     : ${mesa}\n`;
-  texto += `Cliente  : ${cliente}\n`;
-  texto += "================================\n";
-  texto += "CANT  PRODUCTO               P.UNIT  SUBTOT\n";
-  texto += "--------------------------------\n";
+    const iva = subtotal * 0.15;
+    const total = subtotal + iva;
+    const fecha = pedido.fecha
+      ? new Date(pedido.fecha).toLocaleString("es-NI")
+      : "-";
+    const mesa = pedido.Mesas?.id_mesa || "N/A";
+    const cliente =
+      `${pedido.Clientes?.nombre_cliente || ""} ${pedido.Clientes?.apellido_cliente || ""}`.trim() ||
+      "Mostrador";
 
-  detalles.forEach((det) => {
-    const cant = String(det.cantidad).padEnd(4);
-    const prod = (det.Platillos?.nombre_platillo || "?").substring(0, 22).padEnd(23);
-    const punit = `$${det.precio_unitario.toFixed(2)}`.padStart(7);
-    const subt = `$${(det.cantidad * det.precio_unitario).toFixed(2)}`.padStart(8);
-    texto += `${cant}${prod}${punit} ${subt}\n`;
-  });
+    let texto = "IT'S COFFEE TIME - FACTURA\n";
+    texto += "================================\n";
+    texto += `Pedido N°: ${pedido.id_pedido}\n`;
+    texto += `Fecha    : ${fecha}\n`;
+    texto += `Mesa     : ${mesa}\n`;
+    texto += `Cliente  : ${cliente}\n`;
+    texto += "================================\n";
+    texto += "CANT  PRODUCTO               P.UNIT  SUBTOT\n";
+    texto += "--------------------------------\n";
 
-  texto += "--------------------------------\n";
-  texto += `SUBTOTAL:${" ".repeat(20)}$${subtotal.toFixed(2)}\n`;
-  texto += `IVA(15%):${" ".repeat(20)}$${iva.toFixed(2)}\n`;
-  texto += `TOTAL   :${" ".repeat(20)}$${total.toFixed(2)}\n`;
-  texto += "================================\n";
-  texto += "Gracias por su visita\n";
-  texto += "It's Coffee Time\n";
-  return texto;
-};
+    detalles.forEach((det) => {
+      const cant = String(det.cantidad).padEnd(4);
+      const prod = (det.Platillos?.nombre_platillo || "?").substring(0, 22).padEnd(23);
+      const punit = `$${det.precio_unitario.toFixed(2)}`.padStart(7);
+      const subt = `$${(det.cantidad * det.precio_unitario).toFixed(2)}`.padStart(8);
+      texto += `${cant}${prod}${punit} ${subt}\n`;
+    });
 
-  /* Manejador para imprimir VOUCHER (cocina) */
+    texto += "--------------------------------\n";
+    texto += `SUBTOTAL:${" ".repeat(20)}$${subtotal.toFixed(2)}\n`;
+    texto += `IVA(15%):${" ".repeat(20)}$${iva.toFixed(2)}\n`;
+    texto += `TOTAL   :${" ".repeat(20)}$${total.toFixed(2)}\n`;
+    texto += "================================\n";
+    texto += "Gracias por su visita\n";
+    texto += "It's Coffee Time\n";
+    return texto;
+  };
+
   const handleImprimirVoucher = async (idPedido) => {
     try {
       const pedido = pedidos.find((p) => p.id_pedido === idPedido);
-      if (!pedido) {
-        alert("Pedido no encontrado.");
-        return;
-      }
+      if (!pedido) { alert("Pedido no encontrado."); return; }
       const detalles = await obtenerDetallesPedido(idPedido);
       const texto = generarTextoVoucher(pedido, detalles);
       window.location.href = `rawbt:${encodeURIComponent(texto)}`;
@@ -400,14 +404,10 @@ const Pedidos = () => {
     }
   };
 
-  /* Manejador para imprimir FACTURA */
   const handleImprimirFactura = async (idPedido) => {
     try {
       const pedido = pedidos.find((p) => p.id_pedido === idPedido);
-      if (!pedido) {
-        alert("Pedido no encontrado.");
-        return;
-      }
+      if (!pedido) { alert("Pedido no encontrado."); return; }
       const detalles = await obtenerDetallesPedido(idPedido);
       const texto = generarTextoFactura(pedido, detalles);
       window.location.href = `rawbt:${encodeURIComponent(texto)}`;
@@ -417,6 +417,10 @@ const Pedidos = () => {
     }
   };
 
+  const abrirModalDetalles = (pedido) => {
+    setPedidoDetalles(pedido);
+    setMostrarModalDetalles(true);
+  };
 
   return (
     <Container className="mt-4 pt-3">
@@ -427,7 +431,6 @@ const Pedidos = () => {
           <h3><i className="bi bi-receipt me-2"></i>Pedidos</h3>
         </Col>
         <Col className="text-end d-flex align-items-center justify-content-end gap-3">
-          {/* ── NUEVO: campanita ── */}
           <CampanaPedidos
             cantidad={pedidosPendientes.length}
             onClick={() => {}}
@@ -489,6 +492,7 @@ const Pedidos = () => {
               abrirModalEliminacion={abrirModalEliminacion}
               onVerVoucher={handleImprimirVoucher}
               onVerFactura={handleImprimirFactura}
+              onVerDetalles={abrirModalDetalles}
             />
           </Col>
           <Col lg={12} className="d-none d-lg-block">
@@ -498,6 +502,7 @@ const Pedidos = () => {
               abrirModalEliminacion={abrirModalEliminacion}
               onVerVoucher={handleImprimirVoucher}
               onVerFactura={handleImprimirFactura}
+              onVerDetalles={abrirModalDetalles}
             />
           </Col>
         </Row>
@@ -527,6 +532,8 @@ const Pedidos = () => {
         detallesPedido={detallesPedido}
         setDetallesPedido={setDetallesPedido}
         setNuevoPedido={setNuevoPedido}
+        mesaBloqueada={!!location.state?.idMesa}
+        tiposPago={tiposPago}
       />
 
       <ModalEdicionPedido
@@ -547,12 +554,17 @@ const Pedidos = () => {
         eliminarPedido={eliminarPedido}
       />
 
-      {/* ── NUEVO: modal tiempo real ── */}
       <ModalNuevoPedido
         pedido={pedidoEnRevision}
         onAceptar={handleAceptarPedido}
         onRechazar={handleRechazarPedido}
         onCerrar={() => descartarPedido(pedidoEnRevision?.id_pedido)}
+      />
+
+      <ModalDetallesPedidoAdm
+        show={mostrarModalDetalles}
+        onHide={() => setMostrarModalDetalles(false)}
+        pedido={pedidoDetalles}
       />
 
       {/* TOAST */}

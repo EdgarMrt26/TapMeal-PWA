@@ -15,10 +15,11 @@ const ModalRegistroPedido = ({
   detallesPedido,
   setDetallesPedido,
   setNuevoPedido,
+  mesaBloqueada = false,
+  tiposPago = [], // 👈 NUEVA PROP: Recibir los tipos de pago
 }) => {
   const [deshabilitado, setDeshabilitado] = useState(false);
 
-  // Estado local para agregar un item al detalle
   const [itemActual, setItemActual] = useState({
     id_platillo: "",
     id_extra: "",
@@ -26,7 +27,6 @@ const ModalRegistroPedido = ({
     precio_unitario: 0,
   });
 
-  // Actualizar precio unitario cuando cambia el platillo
   useEffect(() => {
     if (itemActual.id_platillo) {
       const platillo = platillos.find(
@@ -38,11 +38,9 @@ const ModalRegistroPedido = ({
     }
   }, [itemActual.id_platillo, platillos]);
 
-  // Recalcular el total del pedido cuando cambian los detalles
   useEffect(() => {
     const nuevoTotal = detallesPedido.reduce((acc, item) => {
       const subtotalItem = item.precio_unitario * item.cantidad;
-      // Sumar precio del extra si existe
       let precioExtra = 0;
       if (item.id_extra) {
         const extra = extras.find((e) => e.id_extra === parseInt(item.id_extra));
@@ -91,11 +89,13 @@ const ModalRegistroPedido = ({
     setDeshabilitado(false);
   };
 
+  // 👈 AGREGAR id_tipo_pago a la validación
   const esValido =
     nuevoPedido.id_cliente &&
     nuevoPedido.id_tipo &&
     nuevoPedido.id_mesa &&
     nuevoPedido.estado &&
+    nuevoPedido.id_tipo_pago && // Validación del tipo de pago
     detallesPedido.length > 0;
 
   return (
@@ -130,9 +130,27 @@ const ModalRegistroPedido = ({
                 </Form.Select>
               </Form.Group>
             </Col>
+            {/* 👈 NUEVO: Select de Tipo de Pago - Lo puse aquí, pero puedes moverlo */}
             <Col md={3}>
               <Form.Group className="mb-3">
-                <Form.Label>Tipo</Form.Label>
+                <Form.Label>Tipo de Pago</Form.Label>
+                <Form.Select
+                  name="id_tipo_pago"
+                  value={nuevoPedido.id_tipo_pago || ""}
+                  onChange={manejoCambioInput}
+                >
+                  <option value="">Seleccione...</option>
+                  {tiposPago.map((tp) => (
+                    <option key={tp.id_tipo_pago} value={tp.id_tipo_pago}>
+                      {tp.descripcion}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+            </Col>
+            <Col md={3}>
+              <Form.Group className="mb-3">
+                <Form.Label>Tipo de Pedido</Form.Label>
                 <Form.Select
                   name="id_tipo"
                   value={nuevoPedido.id_tipo}
@@ -154,6 +172,7 @@ const ModalRegistroPedido = ({
                   name="id_mesa"
                   value={nuevoPedido.id_mesa}
                   onChange={manejoCambioInput}
+                  disabled={mesaBloqueada}
                 >
                   <option value="">Seleccione...</option>
                   {mesas.map((m) => (
@@ -166,6 +185,7 @@ const ModalRegistroPedido = ({
             </Col>
           </Row>
 
+          {/* El resto del código se mantiene IGUAL */}
           <hr />
           <h5>Añadir Platillos al Detalle</h5>
           <Row className="align-items-end mb-3">
