@@ -267,11 +267,11 @@ const Carrito = () => {
 
                 return (
                   <div key={i} style={{ borderBottom: i < carrito.length - 1 ? "1px solid #f3f4f6" : "none" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px" }}>
 
                       {/* Imagen */}
                       <div style={{
-                        width: 60, height: 60, borderRadius: 10,
+                        width: 50, height: 50, borderRadius: 10,
                         overflow: "hidden", flexShrink: 0, background: "#f3f4f6",
                       }}>
                         {item.url_imagen ? (
@@ -294,15 +294,17 @@ const Carrito = () => {
                           textOverflow: "ellipsis",
                           whiteSpace: "nowrap"
                         }}>
-                          {item.nombre_platillo}
+                          <span title={item.nombre_platillo} style={{ display: "block" }}>
+                            {item.nombre_platillo}
+                          </span>
                         </div>
                         {item.extraSeleccionado && (
-                          <div style={{ fontSize: "0.75rem", color: "#ff6a00" }}>
+                          <div style={{ fontSize: "0.7rem", color: "#ff6a00" }}>
                             + {item.extraSeleccionado.descripcion}
                           </div>
                         )}
                         {item.salsaSeleccionada && (
-                          <div style={{ fontSize: "0.75rem", color: "#ef4444" }}>
+                          <div style={{ fontSize: "0.7rem", color: "#ef4444" }}>
                             + {item.salsaSeleccionada.descripcion}
                           </div>
                         )}
@@ -311,7 +313,7 @@ const Carrito = () => {
                             onClick={() => setItemExpandido(expandido ? null : i)}
                             style={{
                               background: "none", border: "none", padding: 0,
-                              fontSize: "0.75rem", color: "#6b7280",
+                              fontSize: "0.7rem", color: "#6b7280",
                               cursor: "pointer", textDecoration: "underline", marginTop: 2,
                             }}
                           >
@@ -321,23 +323,23 @@ const Carrito = () => {
                       </div>
 
                       {/* Cantidad */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                         <button
                           onClick={() => disminuirCantidad(i)}
                           style={{
-                            width: 30, height: 30, borderRadius: "50%",
+                            width: 28, height: 28, borderRadius: "50%",
                             border: "2px solid #e5e7eb", background: "white",
                             cursor: "pointer", fontWeight: 700, fontSize: "1rem",
                             display: "flex", alignItems: "center", justifyContent: "center",
                           }}
                         >−</button>
-                        <span style={{ fontWeight: 700, minWidth: 20, textAlign: "center" }}>
+                        <span style={{ fontWeight: 700, minWidth: 20, textAlign: "center", fontSize: "0.9rem" }}>
                           {item.cantidad}
                         </span>
                         <button
                           onClick={() => aumentarCantidad(i)}
                           style={{
-                            width: 30, height: 30, borderRadius: "50%",
+                            width: 28, height: 28, borderRadius: "50%",
                             border: "2px solid #ff6a00", background: "#ff6a00",
                             cursor: "pointer", fontWeight: 700, fontSize: "1rem",
                             display: "flex", alignItems: "center", justifyContent: "center",
@@ -347,8 +349,8 @@ const Carrito = () => {
                       </div>
 
                       {/* Subtotal */}
-                      <div style={{ minWidth: 80, textAlign: "right" }}>
-                        <div style={{ fontWeight: 800, color: "#ff6a00", fontSize: "0.92rem" }}>
+                      <div style={{ minWidth: 65, textAlign: "right" }}>
+                        <div style={{ fontWeight: 800, color: "#ff6a00", fontSize: "0.85rem" }}>
                           C${calcularSubtotalItem(item).toFixed(2)}
                         </div>
                       </div>
@@ -356,7 +358,7 @@ const Carrito = () => {
                       {/* Eliminar */}
                       <button
                         onClick={() => eliminarDelCarrito(i)}
-                        style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "1.1rem" }}
+                        style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "1rem", padding: "4px" }}
                       >
                         <i className="bi bi-trash" />
                       </button>
@@ -364,7 +366,7 @@ const Carrito = () => {
 
                     {/* Panel expandible extras/salsas */}
                     {expandido && (
-                      <div style={{ padding: "0 20px 16px", background: "#fafafa" }}>
+                      <div style={{ padding: "0 16px 16px", background: "#fafafa" }}>
 
                         {/* Extras */}
                         {aceptaExtras && todosExtras.length > 0 && (
