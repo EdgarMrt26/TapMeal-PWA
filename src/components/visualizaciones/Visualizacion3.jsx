@@ -4,14 +4,14 @@ import { ComposedChart, BarChart, Bar, Cell, Line, XAxis, YAxis, CartesianGrid, 
 import { supabase } from "../../database/supabaseconfig";
 
 const COLORES_EXTRAS = [
-  "#1b5e20", // 1. Verde Oscuro (Doble Queso)
-  "#2e7d32", // 2. Verde Medio (Tocineta)
-  "#c0ca33", // 3. Verde/Amarillo (Papas Fritas)
-  "#e64a19", // 4. Naranja (Champiñones)
-  "#f4511e", // 5. Naranja/Rojo (Aguacate)
-  "#c62828", // 6. Rojo (Cebolla Caramelizada)
-  "#b71c1c", // 7. Rojo Oscuro (Huevo Frito)
-  "#880e4f"  // 8. Rojo Vino (Jalapeños)
+  "#2563eb", // 1. Azul Real
+  "#0ea5e9", // 2. Celeste
+  "#0d9488", // 3. Teal
+  "#10b981", // 4. Esmeralda
+  "#f59e0b", // 5. Ámbar
+  "#f97316", // 6. Naranja
+  "#8b5cf6", // 7. Violeta
+  "#64748b"  // 8. Gris Pizarra
 ];
 
 const Visualizacion3 = forwardRef(({ fechaDesde, fechaHasta }, ref) => {
@@ -99,8 +99,13 @@ const Visualizacion3 = forwardRef(({ fechaDesde, fechaHasta }, ref) => {
       // Inicializar mapa con todos los extras para no omitir ninguno
       const mapaExtras = new Map();
       if (todosLosExtras) {
-        todosLosExtras.forEach(e => {
-          mapaExtras.set(e.descripcion, { cantidad: 0, subtotal: 0, frecuencia: 0 });
+        todosLosExtras.forEach((e, idx) => {
+          mapaExtras.set(e.descripcion, { 
+            cantidad: 0, 
+            subtotal: 0, 
+            frecuencia: 0,
+            color: COLORES_EXTRAS[idx % COLORES_EXTRAS.length]
+          });
         });
       }
 
@@ -112,7 +117,12 @@ const Visualizacion3 = forwardRef(({ fechaDesde, fechaHasta }, ref) => {
         const subtotal = cant * precio;
 
         if (!mapaExtras.has(nombre)) {
-          mapaExtras.set(nombre, { cantidad: 0, subtotal: 0, frecuencia: 0 });
+          mapaExtras.set(nombre, { 
+            cantidad: 0, 
+            subtotal: 0, 
+            frecuencia: 0,
+            color: "#64748b"
+          });
         }
         const item = mapaExtras.get(nombre);
         item.cantidad += cant;
@@ -124,11 +134,12 @@ const Visualizacion3 = forwardRef(({ fechaDesde, fechaHasta }, ref) => {
         extra,
         cantidad: values.cantidad,
         subtotal: values.subtotal,
-        frecuencia: values.frecuencia
+        frecuencia: values.frecuencia,
+        color: values.color
       }));
 
-      // Ordenar de mayor a menor por cantidad para el ranking
-      extrasArray.sort((a, b) => b.cantidad - a.cantidad);
+      // Ordenar de mayor a menor por ingresos (subtotal) para el ranking de Pareto
+      extrasArray.sort((a, b) => b.subtotal - a.subtotal || b.cantidad - a.cantidad);
 
       // Calcular porcentajes acumulados de Pareto
       let sumaAcumulada = 0;
@@ -241,33 +252,131 @@ const Visualizacion3 = forwardRef(({ fechaDesde, fechaHasta }, ref) => {
     return { domain: [0, maxY], ticks };
   };
 
+  const obtenerYAxisPropsCantidad = (data) => {
+    if (!data || data.length === 0) {
+      return { domain: [0, 10], ticks: [0, 2, 4, 6, 8, 10] };
+    }
+    const maxVal = Math.max(...data.map(e => e.cantidad || 0));
+    let maxY = 10;
+    if (maxVal <= 5) maxY = 5;
+    else if (maxVal <= 10) maxY = 10;
+    else if (maxVal <= 15) maxY = 15;
+    else if (maxVal <= 20) maxY = 20;
+    else if (maxVal <= 35) maxY = 35;
+    else if (maxVal <= 50) maxY = 50;
+    else if (maxVal <= 100) maxY = 100;
+    else maxY = Math.ceil(maxVal / 10) * 10;
+
+    const step = maxY / 5;
+    const ticks = [];
+    for (let i = 0; i <= 5; i++) {
+      ticks.push(Math.round(step * i));
+    }
+    return { domain: [0, maxY], ticks };
+  };
+
+  const obtenerYAxisPropsIngresos = (data) => {
+    if (!data || data.length === 0) {
+      return { domain: [0, 100], ticks: [0, 25, 50, 75, 100] };
+    }
+    const maxVal = Math.max(...data.map(e => e.subtotal || 0));
+    let maxY = 100;
+    if (maxVal <= 50) maxY = 50;
+    else if (maxVal <= 100) maxY = 100;
+    else if (maxVal <= 200) maxY = 200;
+    else if (maxVal <= 300) maxY = 300;
+    else if (maxVal <= 400) maxY = 400;
+    else if (maxVal <= 500) maxY = 500;
+    else if (maxVal <= 1000) maxY = 1000;
+    else if (maxVal <= 2000) maxY = 2000;
+    else maxY = Math.ceil(maxVal / 1000) * 1000;
+
+    const step = maxY / 4;
+    const ticks = [0, step, step * 2, step * 3, maxY].map(v => Math.round(v));
+    return { domain: [0, maxY], ticks };
+  };
+
   const { domain: yDomain, ticks: yTicks } = obtenerYAxisProps();
 
   const renderBarLabel = (props) => {
     const { x, y, width, value } = props;
     if (value === undefined || value === null) return null;
     return (
-      <text x={x + width / 2} y={y - 8} fill="#374151" textAnchor="middle" fontSize={11} fontWeight="600">
+      <text 
+        x={x + width / 2} 
+        y={y - 8} 
+        fill="#374151" 
+        textAnchor="middle" 
+        fontSize={11} 
+        fontWeight="600"
+      >
         {value.toFixed(0)}
       </text>
     );
   };
 
   const renderLineLabel = (props) => {
-    const { x, y, value } = props;
+    const { x, y, value, index } = props;
     if (value === undefined || value === null) return null;
     const valText = value % 1 === 0 ? value.toFixed(0) : value.toFixed(1);
+
+    // Evitar solapamiento con la etiqueta de la barra si están muy cerca verticalmente
+    let shiftLeft = false;
+    if (rankingData && rankingData[index] && yDomain && yDomain[1] > 0) {
+      const maxY = yDomain[1];
+      const barVal = rankingData[index].subtotal;
+      const barRatio = barVal / maxY;
+      const lineRatio = value / 100;
+      if (Math.abs(barRatio - lineRatio) < 0.1) {
+        shiftLeft = true;
+      }
+    }
+
+    const posX = shiftLeft ? x - 12 : x;
+    const anchor = shiftLeft ? "end" : "middle";
     return (
-      <text x={x} y={y - 12} fill="#ea580c" textAnchor="middle" fontSize={11} fontWeight="600">
-        {valText}%
-      </text>
+      <g>
+        {/* Contorno blanco para legibilidad sobre fondo de barras */}
+        <text 
+          x={posX} 
+          y={y - 12} 
+          fill="none"
+          stroke="#ffffff"
+          strokeWidth={4}
+          strokeLinejoin="round"
+          textAnchor={anchor} 
+          fontSize={11} 
+          fontWeight="700"
+        >
+          {valText}%
+        </text>
+        <text 
+          x={posX} 
+          y={y - 12} 
+          fill="#be123c" 
+          textAnchor={anchor} 
+          fontSize={11} 
+          fontWeight="600"
+        >
+          {valText}%
+        </text>
+      </g>
     );
   };
 
   if (cargando) return <div className="text-center my-4"><Spinner animation="border" /></div>;
 
-  // Tomar los top 8 extras por cantidad para el gráfico de barras doble vertical
-  const top8Extras = rankingData.slice(0, 8);
+  // Tomar los top 8 extras por cantidad para el gráfico de barras doble vertical (Ránking de Extras Más Vendidos)
+  const top8Extras = [...rankingData]
+    .sort((a, b) => b.cantidad - a.cantidad || b.subtotal - a.subtotal)
+    .slice(0, 8);
+
+  // Ordenar el mismo set de extras por ingresos (de mayor a menor) para el gráfico de ingresos
+  const top8ExtrasPorIngresos = [...top8Extras]
+    .sort((a, b) => b.subtotal - a.subtotal || b.cantidad - a.cantidad);
+
+  const { domain: yDomainCantidad, ticks: yTicksCantidad } = obtenerYAxisPropsCantidad(top8Extras);
+  const { domain: yDomainIngresos, ticks: yTicksIngresos } = obtenerYAxisPropsIngresos(top8ExtrasPorIngresos);
 
   return (
     <>
@@ -336,7 +445,7 @@ const Visualizacion3 = forwardRef(({ fechaDesde, fechaHasta }, ref) => {
                       <YAxis 
                         yAxisId="right" 
                         orientation="right" 
-                        stroke="#ea580c"
+                        stroke="#be123c"
                         tick={{ fill: "#374151", fontSize: 11 }}
                         domain={[0, 100]}
                         ticks={[0, 20, 40, 60, 80, 100]}
@@ -375,7 +484,7 @@ const Visualizacion3 = forwardRef(({ fechaDesde, fechaHasta }, ref) => {
                                   width: 8, 
                                   height: 8, 
                                   borderRadius: "50%", 
-                                  backgroundColor: "#ea580c" 
+                                  backgroundColor: "#be123c" 
                                 }} 
                               />
                               <span style={{ color: "#374151", fontWeight: "600" }}>% Acumulado</span>
@@ -387,20 +496,26 @@ const Visualizacion3 = forwardRef(({ fechaDesde, fechaHasta }, ref) => {
                         yAxisId="left" 
                         dataKey="subtotal" 
                         name="Ingresos" 
-                        fill="#24458f" 
                         maxBarSize={45}
                         radius={[3, 3, 0, 0]}
                         label={renderBarLabel}
-                      />
+                      >
+                        {rankingData.map((entry, index) => (
+                          <Cell 
+                            key={`cell-pareto-${index}`} 
+                            fill={entry.color || COLORES_EXTRAS[index % COLORES_EXTRAS.length]} 
+                          />
+                        ))}
+                      </Bar>
                       <Line 
                         yAxisId="right" 
                         type="monotone" 
                         dataKey="porcentajeAcumulado" 
                         name="% Acumulado" 
-                        stroke="#ea580c" 
+                        stroke="#be123c" 
                         strokeWidth={2.5} 
-                        dot={{ fill: "#ea580c", strokeWidth: 1, r: 4 }}
-                        activeDot={{ r: 6, fill: "#ea580c" }} 
+                        dot={{ fill: "#be123c", strokeWidth: 1, r: 4 }}
+                        activeDot={{ r: 6, fill: "#be123c" }} 
                         label={renderLineLabel}
                       />
                     </ComposedChart>
@@ -421,30 +536,42 @@ const Visualizacion3 = forwardRef(({ fechaDesde, fechaHasta }, ref) => {
             <Card.Body className="d-flex flex-column">
               <h5 className="mb-4">📈 Ránking de Extras Más Vendidos y su Aporte Económico</h5>
               
-              <div className="flex-grow-1 d-flex flex-column" style={{ minHeight: 390 }}>
+              <div className="flex-grow-1 d-flex flex-column" style={{ minHeight: 460 }}>
                 {top8Extras.length > 0 ? (
                   <>
                     {/* Gráfico Superior: Cantidad */}
-                    <div style={{ width: "100%", height: 170 }}>
+                    <div style={{ width: "100%", height: 215 }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart
                           data={top8Extras}
-                          margin={{ top: 25, right: 20, left: 10, bottom: 5 }}
+                          margin={{ top: 25, right: 20, left: 10, bottom: 45 }}
                         >
                           <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                          <XAxis dataKey="extra" hide />
+                          <XAxis 
+                            dataKey="extra" 
+                            tick={{ fill: "#374151", fontSize: 9 }}
+                            axisLine={true}
+                            tickLine={true}
+                            interval={0}
+                            angle={-20}
+                            textAnchor="end"
+                          />
                           <YAxis 
-                            domain={[0, (max) => Math.ceil(max * 1.2)]}
+                            domain={yDomainCantidad}
+                            ticks={yTicksCantidad}
                             tick={{ fill: "#374151", fontSize: 10 }}
                             axisLine={true}
                             tickLine={true}
-                            width={50}
-                            label={{ value: 'Cantidad', angle: -90, position: 'insideLeft', offset: -5, style: { textAnchor: 'middle', fontSize: 10, fill: '#374151', fontWeight: 'bold' } }}
+                            width={55}
+                            label={{ value: 'Unidades Vendidas', angle: -90, position: 'insideLeft', offset: -5, style: { textAnchor: 'middle', fontSize: 10, fill: '#374151', fontWeight: 'bold' } }}
                           />
-                          <Tooltip formatter={(v) => [`${v} und`, "Cantidad"]} />
+                          <Tooltip formatter={(v) => [`${v} und`, "Unidades Vendidas"]} />
                           <Bar dataKey="cantidad" barSize={28}>
                             {top8Extras.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={COLORES_EXTRAS[index % COLORES_EXTRAS.length]} />
+                              <Cell 
+                                key={`cell-cant-${index}`} 
+                                fill={entry.color || COLORES_EXTRAS[index % COLORES_EXTRAS.length]} 
+                              />
                             ))}
                             <LabelList dataKey="cantidad" position="top" fill="#374151" fontSize={10} fontWeight="600" />
                           </Bar>
@@ -472,10 +599,10 @@ const Visualizacion3 = forwardRef(({ fechaDesde, fechaHasta }, ref) => {
                     </div>
 
                     {/* Gráfico Inferior: Ingresos */}
-                    <div style={{ width: "100%", height: 210 }}>
+                    <div style={{ width: "100%", height: 215 }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart
-                          data={top8Extras}
+                          data={top8ExtrasPorIngresos}
                           margin={{ top: 25, right: 20, left: 10, bottom: 45 }}
                         >
                           <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -489,18 +616,22 @@ const Visualizacion3 = forwardRef(({ fechaDesde, fechaHasta }, ref) => {
                             textAnchor="end"
                           />
                           <YAxis 
+                            domain={yDomainIngresos}
+                            ticks={yTicksIngresos}
                             tickFormatter={(v) => `C$${v}`}
                             tick={{ fill: "#374151", fontSize: 10 }}
                             axisLine={true}
                             tickLine={true}
-                            width={50}
-                            domain={[0, (max) => Math.ceil(max * 1.2)]}
+                            width={55}
                             label={{ value: 'Ingresos por Extras', angle: -90, position: 'insideLeft', offset: -5, style: { textAnchor: 'middle', fontSize: 10, fill: '#374151', fontWeight: 'bold' } }}
                           />
                           <Tooltip formatter={(v) => [`C$ ${v.toFixed(2)}`, "Ingreso"]} />
                           <Bar dataKey="subtotal" barSize={28}>
-                            {top8Extras.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={COLORES_EXTRAS[index % COLORES_EXTRAS.length]} />
+                            {top8ExtrasPorIngresos.map((entry, index) => (
+                              <Cell 
+                                key={`cell-sub-${index}`} 
+                                fill={entry.color || COLORES_EXTRAS[index % COLORES_EXTRAS.length]} 
+                              />
                             ))}
                             <LabelList 
                               dataKey="subtotal" 
