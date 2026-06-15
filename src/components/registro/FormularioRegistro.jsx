@@ -131,7 +131,7 @@ const FormularioRegistro = ({
               <Form.Control
                 type="text"
                 name="nombre"
-                placeholder="Juan"
+                placeholder="Ernesto"
                 value={form.nombre || ""}
                 onChange={manejarCambio}
                 style={inputStyle}
