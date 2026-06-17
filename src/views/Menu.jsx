@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { Row, Col, Spinner, Alert, Badge } from "react-bootstrap";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { supabase } from "../database/supabaseconfig";
 import TarjetaMenu from "../components/menu/TarjetaMenu";
 import BotonCarrito from "../components/carrito/BotonCarrito";
@@ -15,49 +15,57 @@ const Menu = () => {
   const [cargando, setCargando] = useState(true);
   const [sesionActiva, setSesionActiva] = useState(false);
   const [nombreCliente, setNombreCliente] = useState("");
+  const [nombreMesa, setNombreMesa] = useState("");
+
   const { agregarAlCarrito } = useCarrito();
   const navegar = useNavigate();
   const { idMesa } = useParams();
-  const [nombreMesa, setNombreMesa] = useState("");
+  const location = useLocation();
 
-  // Manejo de mesa por QR / URL
+  const queryParams = new URLSearchParams(location.search);
+  const mesaQuery = queryParams.get("mesa");
+  const mesaStorage = localStorage.getItem("mesa_actual");
+
+  const mesaActual = idMesa || mesaQuery || mesaStorage || null;
+
   useEffect(() => {
-    if (idMesa) {
-      const idNumerico = parseInt(idMesa, 10);
-      const guardada = localStorage.getItem("mesa_actual");
-      if (guardada && parseInt(guardada, 10) !== idNumerico) {
-        localStorage.removeItem("mesa_actual");
-        localStorage.removeItem("mesa_nombre");
-      }
-      localStorage.setItem("mesa_actual", idNumerico);
-      localStorage.setItem("modo_pedido", "en_local");
+    if (mesaActual) {
+      const idNumerico = parseInt(mesaActual, 10);
 
-      const cargarNombreMesa = async () => {
-        try {
-          const { data, error } = await supabase
-            .from("Mesas")
-            .select("nombre_mesa")
-            .eq("id_mesa", idNumerico)
-            .single();
-          if (error) throw error;
-          const nombre = data?.nombre_mesa || `Mesa ${idNumerico}`;
-          setNombreMesa(nombre);
-          localStorage.setItem("mesa_nombre", nombre);
-        } catch {
-          const nombre = `Mesa ${idNumerico}`;
-          setNombreMesa(nombre);
-          localStorage.setItem("mesa_nombre", nombre);
-        }
-      };
-      cargarNombreMesa();
+      if (!Number.isNaN(idNumerico)) {
+        localStorage.setItem("mesa_actual", String(idNumerico));
+        localStorage.setItem("modo_pedido", "en_local");
+
+        const cargarNombreMesa = async () => {
+          try {
+            const { data, error } = await supabase
+              .from("Mesas")
+              .select("nombre_mesa")
+              .eq("id_mesa", idNumerico)
+              .single();
+
+            if (error) throw error;
+
+            const nombre = data?.nombre_mesa || `Mesa ${idNumerico}`;
+            setNombreMesa(nombre);
+            localStorage.setItem("mesa_nombre", nombre);
+          } catch {
+            const nombre = `Mesa ${idNumerico}`;
+            setNombreMesa(nombre);
+            localStorage.setItem("mesa_nombre", nombre);
+          }
+        };
+
+        cargarNombreMesa();
+      }
     } else {
       localStorage.removeItem("mesa_actual");
       localStorage.removeItem("mesa_nombre");
+      localStorage.setItem("modo_pedido", "en_linea");
       setNombreMesa("");
     }
-  }, [idMesa]);
+  }, [mesaActual]);
 
-  // Inicialización: carga datos y valida rol
   useEffect(() => {
     const inicializar = async () => {
       try {
@@ -67,27 +75,39 @@ const Menu = () => {
         const session = sessionData?.session;
         const rol = session?.user?.user_metadata?.rol;
 
-        // ✅ CORRECCIÓN: Solo redirige si es admin Y no hay una mesa específica
-        if (rol === "admin" && !idMesa) {
+        if (rol === "admin" && !mesaActual) {
           navegar("/categorias");
           return;
         }
 
         if (session && rol === "cliente") {
           setSesionActiva(true);
+
           const metadata = session.user.user_metadata;
           const nombre = metadata?.nombre || "";
           const apellido = metadata?.apellido || "";
+
           if (nombre || apellido) {
             setNombreCliente(`${nombre} ${apellido}`.trim());
           } else {
             setNombreCliente(session.user.email);
           }
+        } else {
+          setSesionActiva(false);
+          setNombreCliente("");
         }
 
         const [resPlatillos, resCategorias, resExtras] = await Promise.all([
-          supabase.from("Platillos").select("*").order("nombre_platillo", { ascending: true }),
-          supabase.from("Categorias").select("id_categoria, nombre_categoria").order("nombre_categoria"),
+          supabase
+            .from("Platillos")
+            .select("*")
+            .order("nombre_platillo", { ascending: true }),
+
+          supabase
+            .from("Categorias")
+            .select("id_categoria, nombre_categoria")
+            .order("nombre_categoria"),
+
           supabase.from("Extras").select("*").order("descripcion"),
         ]);
 
@@ -100,41 +120,68 @@ const Menu = () => {
         setCargando(false);
       }
     };
+
     inicializar();
-  }, [idMesa, navegar]);
+  }, [mesaActual, navegar]);
 
   const platillosFiltrados = useMemo(() => {
     let filtrados = platillos;
+
     if (categoriaSeleccionada !== "todas") {
-      filtrados = filtrados.filter(p => p.categoria_platillo === parseInt(categoriaSeleccionada));
-    }
-    if (textoBusqueda.trim()) {
-      const lower = textoBusqueda.toLowerCase();
-      filtrados = filtrados.filter(p =>
-        p.nombre_platillo?.toLowerCase().includes(lower) ||
-        p.descripcion?.toLowerCase().includes(lower)
+      filtrados = filtrados.filter(
+        (p) => p.categoria_platillo === parseInt(categoriaSeleccionada, 10)
       );
     }
+
+    if (textoBusqueda.trim()) {
+      const lower = textoBusqueda.toLowerCase();
+
+      filtrados = filtrados.filter(
+        (p) =>
+          p.nombre_platillo?.toLowerCase().includes(lower) ||
+          p.descripcion?.toLowerCase().includes(lower)
+      );
+    }
+
     return filtrados;
   }, [platillos, categoriaSeleccionada, textoBusqueda]);
 
   const obtenerNombreCategoria = (idCategoria) => {
-    const cat = categorias.find(c => c.id_categoria === idCategoria);
+    const cat = categorias.find((c) => c.id_categoria === idCategoria);
     return cat ? cat.nombre_categoria : "Sin categoría";
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#fafafa", fontFamily: "'Segoe UI', sans-serif" }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#fafafa",
+        fontFamily: "'Segoe UI', sans-serif",
+      }}
+    >
       {!sesionActiva && (
-        <div style={{
-          background: "rgba(255,106,0,0.06)", borderBottom: "1px solid rgba(255,106,0,0.15)",
-          padding: "10px 24px", textAlign: "center", fontSize: "0.85rem", color: "#92400e",
-        }}>
+        <div
+          style={{
+            background: "rgba(255,106,0,0.06)",
+            borderBottom: "1px solid rgba(255,106,0,0.15)",
+            padding: "10px 24px",
+            textAlign: "center",
+            fontSize: "0.85rem",
+            color: "#92400e",
+          }}
+        >
           <i className="bi bi-eye me-2" />
           Estás viendo el menú como <strong>invitado</strong>.{" "}
           <span
-            onClick={() => navegar(idMesa ? `/registro?mesa=${idMesa}` : "/registro")}
-            style={{ color: "#ff6a00", fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}
+            onClick={() =>
+              navegar(mesaActual ? `/registro?mesa=${mesaActual}` : "/registro")
+            }
+            style={{
+              color: "#ff6a00",
+              fontWeight: 700,
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
           >
             Regístrate gratis
           </span>{" "}
@@ -146,67 +193,121 @@ const Menu = () => {
 
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 20px" }}>
         <div style={{ marginBottom: 24 }}>
-          <h2 style={{ fontWeight: 800, color: "#0c0c2c", marginBottom: 4 }}>Menú</h2>
+          <h2 style={{ fontWeight: 800, color: "#0c0c2c", marginBottom: 4 }}>
+            Menú
+          </h2>
+
           {nombreMesa && (
             <Badge bg="dark" className="mt-2">
               <i className="bi bi-table me-1"></i> {nombreMesa}
             </Badge>
           )}
-          {!idMesa && (
+
+          {!mesaActual && (
             <div className="text-muted small mt-2">
               <i className="bi bi-info-circle"></i> Pedido en línea
             </div>
           )}
+
           {sesionActiva && nombreCliente && (
-            <div style={{
-              marginTop: 12, fontSize: "0.9rem",
-              background: "rgba(255,106,0,0.08)", padding: "8px 12px",
-              borderRadius: 10, display: "inline-block",
-            }}>
-              <i className="bi bi-person-circle me-1" style={{ color: "#ff6a00" }}></i>
+            <div
+              style={{
+                marginTop: 12,
+                fontSize: "0.9rem",
+                background: "rgba(255,106,0,0.08)",
+                padding: "8px 12px",
+                borderRadius: 10,
+                display: "inline-block",
+              }}
+            >
+              <i
+                className="bi bi-person-circle me-1"
+                style={{ color: "#ff6a00" }}
+              ></i>
               Pedido a nombre de: <strong>{nombreCliente}</strong>
             </div>
           )}
         </div>
 
         <div style={{ marginBottom: 20, maxWidth: 400 }}>
-          <div style={{
-            display: "flex", alignItems: "center", gap: 8, background: "white",
-            borderRadius: 10, padding: "8px 14px",
-            boxShadow: "0 1px 6px rgba(0,0,0,0.07)", border: "1px solid #e5e7eb",
-          }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              background: "white",
+              borderRadius: 10,
+              padding: "8px 14px",
+              boxShadow: "0 1px 6px rgba(0,0,0,0.07)",
+              border: "1px solid #e5e7eb",
+            }}
+          >
             <i className="bi bi-search" style={{ color: "#9ca3af" }} />
             <input
-              type="text" placeholder="Buscar platillos..."
-              value={textoBusqueda} onChange={e => setTextoBusqueda(e.target.value)}
-              style={{ border: "none", outline: "none", flex: 1, fontSize: "0.9rem", background: "transparent" }}
+              type="text"
+              placeholder="Buscar platillos..."
+              value={textoBusqueda}
+              onChange={(e) => setTextoBusqueda(e.target.value)}
+              style={{
+                border: "none",
+                outline: "none",
+                flex: 1,
+                fontSize: "0.9rem",
+                background: "transparent",
+              }}
             />
           </div>
         </div>
 
         {!cargando && (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+              marginBottom: 24,
+            }}
+          >
             <button
               onClick={() => setCategoriaSeleccionada("todas")}
               style={{
-                padding: "6px 16px", borderRadius: 20, border: "none", fontWeight: 600,
-                fontSize: "0.82rem", cursor: "pointer",
-                background: categoriaSeleccionada === "todas" ? "#ff6a00" : "white",
-                color: categoriaSeleccionada === "todas" ? "white" : "#374151",
+                padding: "6px 16px",
+                borderRadius: 20,
+                border: "none",
+                fontWeight: 600,
+                fontSize: "0.82rem",
+                cursor: "pointer",
+                background:
+                  categoriaSeleccionada === "todas" ? "#ff6a00" : "white",
+                color:
+                  categoriaSeleccionada === "todas" ? "white" : "#374151",
                 boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
               }}
             >
               Todo
             </button>
-            {categorias.map(cat => (
+
+            {categorias.map((cat) => (
               <button
                 key={cat.id_categoria}
-                onClick={() => setCategoriaSeleccionada(String(cat.id_categoria))}
+                onClick={() =>
+                  setCategoriaSeleccionada(String(cat.id_categoria))
+                }
                 style={{
-                  padding: "6px 16px", borderRadius: 20, border: "none", fontWeight: 600,
-                  fontSize: "0.82rem", cursor: "pointer",
-                  background: categoriaSeleccionada === String(cat.id_categoria) ? "#ff6a00" : "white",
-                  color: categoriaSeleccionada === String(cat.id_categoria) ? "white" : "#374151",
+                  padding: "6px 16px",
+                  borderRadius: 20,
+                  border: "none",
+                  fontWeight: 600,
+                  fontSize: "0.82rem",
+                  cursor: "pointer",
+                  background:
+                    categoriaSeleccionada === String(cat.id_categoria)
+                      ? "#ff6a00"
+                      : "white",
+                  color:
+                    categoriaSeleccionada === String(cat.id_categoria)
+                      ? "white"
+                      : "#374151",
                   boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
                 }}
               >
@@ -225,21 +326,24 @@ const Menu = () => {
 
         {!cargando && platillosFiltrados.length === 0 && (
           <Alert variant="info" className="text-center">
-            <i className="bi bi-info-circle me-2" />No se encontraron platillos.
+            <i className="bi bi-info-circle me-2" />
+            No se encontraron platillos.
           </Alert>
         )}
 
         {!cargando && platillosFiltrados.length > 0 && (
           <Row className="g-3">
-            {platillosFiltrados.map(platillo => (
+            {platillosFiltrados.map((platillo) => (
               <Col xs={6} sm={6} md={4} lg={3} key={platillo.id_platillo}>
                 <TarjetaMenu
                   platillo={platillo}
-                  categoriaNombre={obtenerNombreCategoria(platillo.categoria_platillo)}
+                  categoriaNombre={obtenerNombreCategoria(
+                    platillo.categoria_platillo
+                  )}
                   extras={extras}
                   onAgregar={agregarAlCarrito}
                   esInvitado={!sesionActiva}
-                  mesaId={idMesa || null}
+                  mesaId={mesaActual || null}
                 />
               </Col>
             ))}

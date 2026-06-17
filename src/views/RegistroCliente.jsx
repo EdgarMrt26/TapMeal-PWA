@@ -7,8 +7,9 @@ import Logo from "../assets/Logo.png";
 const RegistroCliente = () => {
   const navigate = useNavigate();
   const location = useLocation();
+
   const queryParams = new URLSearchParams(location.search);
-  const mesaId = queryParams.get("mesa") || null; // si viene de QR
+  const mesaId = queryParams.get("mesa") || null;
 
   const [form, setForm] = useState({
     nombre: "",
@@ -31,18 +32,26 @@ const RegistroCliente = () => {
   const registrar = async () => {
     setError(null);
 
-    if (!form.nombre.trim() || !form.apellido.trim() || !form.correo.trim() || !form.contrasena.trim()) {
+    if (
+      !form.nombre.trim() ||
+      !form.apellido.trim() ||
+      !form.correo.trim() ||
+      !form.contrasena.trim()
+    ) {
       setError("Por favor completa todos los campos obligatorios.");
       return;
     }
+
     if (form.contrasena !== form.confirmarContrasena) {
       setError("Las contraseñas no coinciden.");
       return;
     }
+
     if (form.contrasena.length < 6) {
       setError("La contraseña debe tener al menos 6 caracteres.");
       return;
     }
+
     const emailRegex = /^[^\s@]+@gmail\.com$/i;
     if (!emailRegex.test(form.correo.trim())) {
       setError("Solo se permiten correos @gmail.com");
@@ -53,7 +62,6 @@ const RegistroCliente = () => {
       setCargando(true);
       const emailLower = form.correo.trim().toLowerCase();
 
-      // 1. Crear usuario en Auth
       const { data: authData, error: errorAuth } = await supabase.auth.signUp({
         email: emailLower,
         password: form.contrasena,
@@ -62,6 +70,8 @@ const RegistroCliente = () => {
             rol: "cliente",
             nombre: form.nombre.trim(),
             apellido: form.apellido.trim(),
+            telefono: form.telefono.trim() || null,
+            direccion: form.direccion.trim() || null,
           },
         },
       });
@@ -75,9 +85,10 @@ const RegistroCliente = () => {
         return;
       }
 
-      if (!authData.user) throw new Error("No se pudo obtener el usuario");
+      if (!authData.user) {
+        throw new Error("No se pudo obtener el usuario");
+      }
 
-      // 2. Insertar en tabla Clientes con auth_user_id
       const { data: nuevoCliente, error: errorCliente } = await supabase
         .from("Clientes")
         .insert([
@@ -98,22 +109,29 @@ const RegistroCliente = () => {
         return;
       }
 
-      // 3. Actualizar metadatos del usuario con el id_cliente
       const idCliente = nuevoCliente.id_cliente;
+
       await supabase.auth.updateUser({
         data: {
           rol: "cliente",
           id_cliente: idCliente,
           nombre: form.nombre.trim(),
           apellido: form.apellido.trim(),
+          telefono: form.telefono.trim() || null,
+          direccion: form.direccion.trim() || null,
         },
       });
 
-      // 4. Redirigir según si viene de mesa o no
       localStorage.setItem("usuario-supabase", emailLower);
+
       if (mesaId) {
+        localStorage.setItem("mesa_actual", mesaId);
+        localStorage.setItem("modo_pedido", "en_local");
         navigate(`/menu/${mesaId}`);
       } else {
+        localStorage.removeItem("mesa_actual");
+        localStorage.removeItem("mesa_nombre");
+        localStorage.setItem("modo_pedido", "en_linea");
         navigate("/menu");
       }
     } catch (err) {
@@ -125,35 +143,76 @@ const RegistroCliente = () => {
   };
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "#f0f2f5",
-      fontFamily: "'Segoe UI', sans-serif",
-      display: "flex",
-      flexDirection: "column",
-    }}>
-      <nav style={{
-        background: "white", padding: "0 28px", height: 58,
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        boxShadow: "0 1px 8px rgba(0,0,0,0.08)", flexShrink: 0,
-      }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#f0f2f5",
+        fontFamily: "'Segoe UI', sans-serif",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <nav
+        style={{
+          background: "white",
+          padding: "0 28px",
+          height: 58,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          boxShadow: "0 1px 8px rgba(0,0,0,0.08)",
+          flexShrink: 0,
+        }}
+      >
         <div
-          style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            cursor: "pointer",
+          }}
           onClick={() => navigate("/")}
         >
-          <img src={Logo} alt="TapMeal" style={{ height: 34, objectFit: "contain" }} />
-          <span style={{ fontWeight: 800, fontSize: "1.3rem", color: "#0c0c2c" }}>TapMeal</span>
+          <img
+            src={Logo}
+            alt="TapMeal"
+            style={{ height: 34, objectFit: "contain" }}
+          />
+          <span
+            style={{
+              fontWeight: 800,
+              fontSize: "1.3rem",
+              color: "#0c0c2c",
+            }}
+          >
+            TapMeal
+          </span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#0c0c2c", fontSize: "0.88rem", fontWeight: 600 }}>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            color: "#0c0c2c",
+            fontSize: "0.88rem",
+            fontWeight: 600,
+          }}
+        >
           <i className="bi bi-person-plus-fill" />
           <span>Crear cuenta</span>
         </div>
       </nav>
 
-      <div style={{
-        flex: 1, display: "flex", alignItems: "center",
-        justifyContent: "center", padding: "32px 24px",
-      }}>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "32px 24px",
+        }}
+      >
         <FormularioRegistro
           form={form}
           error={error}

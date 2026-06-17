@@ -10,28 +10,36 @@ const CON_SALSAS = ["comidas", "alitas"];
 
 const Carrito = () => {
   const {
-    carrito, aumentarCantidad, disminuirCantidad,
-    eliminarDelCarrito, actualizarExtra, actualizarSalsa,
-    limpiarCarrito, totalCarrito,
+    carrito,
+    aumentarCantidad,
+    disminuirCantidad,
+    eliminarDelCarrito,
+    actualizarExtra,
+    actualizarSalsa,
+    limpiarCarrito,
+    totalCarrito,
   } = useCarrito();
 
+  const navegar = useNavigate();
 
-  const modoPedido = localStorage.getItem("modo_pedido") || "en_linea";
-  const [tipoPago, setTipoPago] = useState(modoPedido === "en_linea" ? "Tarjeta" : "Efectivo");
+  const mesaActualStorage = localStorage.getItem("mesa_actual");
+  const modoPedido = mesaActualStorage ? "en_local" : "en_linea";
+
+  const [tipoPago, setTipoPago] = useState(
+    modoPedido === "en_linea" ? "Tarjeta" : "Efectivo"
+  );
+
   const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState(null);
   const [todosExtras, setTodosExtras] = useState([]);
   const [todasSalsas, setTodasSalsas] = useState([]);
   const [itemExpandido, setItemExpandido] = useState(null);
-  const navegar = useNavigate();
-
   const [mostrarModalTarjeta, setMostrarModalTarjeta] = useState(false);
 
-  const opcionesPago = modoPedido === "en_linea" ? ["Tarjeta"] : ["Efectivo", "Tarjeta"];
+  const opcionesPago =
+    modoPedido === "en_linea" ? ["Tarjeta"] : ["Efectivo", "Tarjeta"];
 
-  const idMesa = localStorage.getItem("mesa_actual")
-    ? parseInt(localStorage.getItem("mesa_actual"), 10)
-    : null;
+  const idMesa = mesaActualStorage ? parseInt(mesaActualStorage, 10) : null;
   const mesaNombre = localStorage.getItem("mesa_nombre") || null;
 
   useEffect(() => {
@@ -40,18 +48,28 @@ const Carrito = () => {
         supabase.from("Extras").select("*").order("descripcion"),
         supabase.from("Salsas").select("*").order("descripcion"),
       ]);
+
       if (resExtras.data) setTodosExtras(resExtras.data);
       if (resSalsas.data) setTodasSalsas(resSalsas.data);
     };
+
     cargarComplementos();
   }, []);
 
   const calcularSubtotalItem = (item) => {
-    const precioExtra = item.extraSeleccionado ? parseFloat(item.extraSeleccionado.precio || 0) : 0;
-    const precioSalsa = item.salsaSeleccionada ? parseFloat(item.salsaSeleccionada.precio || 0) : 0;
-    return (parseFloat(item.precio || 0) + precioExtra + precioSalsa) * item.cantidad;
-  };
+    const precioExtra = item.extraSeleccionado
+      ? parseFloat(item.extraSeleccionado.precio || 0)
+      : 0;
 
+    const precioSalsa = item.salsaSeleccionada
+      ? parseFloat(item.salsaSeleccionada.precio || 0)
+      : 0;
+
+    return (
+      (parseFloat(item.precio || 0) + precioExtra + precioSalsa) *
+      item.cantidad
+    );
+  };
 
   const asegurarCliente = async (userId, metadata) => {
     const { data: clienteExistente, error: buscarError } = await supabase
@@ -60,7 +78,10 @@ const Carrito = () => {
       .eq("auth_user_id", userId)
       .maybeSingle();
 
-    if (buscarError) throw new Error("Error al verificar cliente: " + buscarError.message);
+    if (buscarError) {
+      throw new Error("Error al verificar cliente: " + buscarError.message);
+    }
+
     if (clienteExistente) return clienteExistente.id_cliente;
 
     const nombre = metadata?.nombre || "";
@@ -70,20 +91,24 @@ const Carrito = () => {
 
     const { data: nuevoCliente, error: insertError } = await supabase
       .from("Clientes")
-      .insert([{
-        auth_user_id: userId,
-        nombre_cliente: nombre,
-        apellido_cliente: apellido,
-        telefono: telefono,
-        direccion: direccion,
-      }])
+      .insert([
+        {
+          auth_user_id: userId,
+          nombre_cliente: nombre,
+          apellido_cliente: apellido,
+          telefono,
+          direccion,
+        },
+      ])
       .select("id_cliente")
       .single();
 
-    if (insertError) throw new Error("Error al crear cliente: " + insertError.message);
+    if (insertError) {
+      throw new Error("Error al crear cliente: " + insertError.message);
+    }
 
     await supabase.auth.updateUser({
-      data: { ...metadata, id_cliente: nuevoCliente.id_cliente }
+      data: { ...metadata, id_cliente: nuevoCliente.id_cliente },
     });
 
     return nuevoCliente.id_cliente;
@@ -91,32 +116,34 @@ const Carrito = () => {
 
   const procederPago = async () => {
     if (carrito.length === 0) return;
+
     setError(null);
     setProcesando(true);
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const session = sessionData?.session;
+
       if (!session) {
         setError("Debes iniciar sesión para realizar un pedido.");
         setProcesando(false);
         return;
       }
 
-
       const user = session.user;
       const metadata = user.user_metadata;
+
       let idCliente = metadata?.id_cliente;
+
       if (!idCliente) {
         idCliente = await asegurarCliente(user.id, metadata);
       }
-
 
       const mesaActual = localStorage.getItem("mesa_actual")
         ? parseInt(localStorage.getItem("mesa_actual"), 10)
         : null;
 
-      const esLocal = !!mesaActual;
+      const esLocal = mesaActual && !Number.isNaN(mesaActual);
       const tipoPedidoBuscado = esLocal ? "En local" : "En línea";
 
       const { data: tipoPedido, error: errorTipo } = await supabase
@@ -126,38 +153,43 @@ const Carrito = () => {
         .maybeSingle();
 
       if (errorTipo) throw errorTipo;
+
       if (!tipoPedido) {
-        throw new Error(`No se encontró el tipo de pedido "${tipoPedidoBuscado}"`);
+        throw new Error(
+          `No se encontró el tipo de pedido "${tipoPedidoBuscado}"`
+        );
       }
 
-      // Obtener id_tipo_pago
-      const { data: tipoPagoData } = await supabase
+      const { data: tipoPagoData, error: errorTipoPago } = await supabase
         .from("Tipo_pago")
         .select("id_tipo_pago")
         .ilike("descripcion", tipoPago)
         .maybeSingle();
-      const idTipoPago = tipoPagoData?.id_tipo_pago || null;
 
+      if (errorTipoPago) throw errorTipoPago;
+
+      const idTipoPago = tipoPagoData?.id_tipo_pago || null;
 
       const { data: pedidoData, error: errorPedido } = await supabase
         .from("Pedido")
-        .insert([{
-          fecha: new Date().toISOString(),
-          id_cliente: idCliente,
-          id_tipo: tipoPedido.id_tipo,
-          id_tipo_pago: idTipoPago,
-          id_mesa: mesaActual,
-          estado: "Pendiente",
-          total: parseFloat(totalCarrito.toFixed(2)),
-        }])
+        .insert([
+          {
+            fecha: new Date().toISOString(),
+            id_cliente: idCliente,
+            id_tipo: tipoPedido.id_tipo,
+            id_tipo_pago: idTipoPago,
+            id_mesa: esLocal ? mesaActual : null,
+            estado: "Pendiente",
+            total: parseFloat(totalCarrito.toFixed(2)),
+          },
+        ])
         .select();
 
       if (errorPedido) throw errorPedido;
 
       const idPedido = pedidoData[0].id_pedido;
 
-      // Insertar en Detalle_pedido
-      const detalles = carrito.map(item => ({
+      const detalles = carrito.map((item) => ({
         id_pedido: idPedido,
         id_platillo: item.id_platillo,
         cantidad: item.cantidad,
@@ -172,29 +204,30 @@ const Carrito = () => {
 
       if (errorDetalle) throw errorDetalle;
 
-
-      if (mesaActual) {
-        await supabase.from("Mesas").update({ estado: "Ocupada" }).eq("id_mesa", mesaActual);
+      if (esLocal) {
+        await supabase
+          .from("Mesas")
+          .update({ estado: "Ocupada" })
+          .eq("id_mesa", mesaActual);
       }
 
-      // Limpiar localStorage y carrito
       localStorage.removeItem("mesa_actual");
       localStorage.removeItem("mesa_nombre");
-      // ✅ AGREGADO: Limpiar modo_pedido
       localStorage.removeItem("modo_pedido");
+
       limpiarCarrito();
-      
 
       navegar(`/pedidoCliente/${idPedido}`);
-
     } catch (err) {
       console.error("Error al procesar pedido:", err);
-      setError(err.message || "Ocurrió un error al registrar tu pedido. Intenta de nuevo.");
+      setError(
+        err.message ||
+          "Ocurrió un error al registrar tu pedido. Intenta de nuevo."
+      );
     } finally {
       setProcesando(false);
     }
   };
-
 
   const handleProcederPago = () => {
     if (tipoPago === "Tarjeta") {
@@ -205,48 +238,82 @@ const Carrito = () => {
   };
 
   const estiloChipPill = (seleccionado, color) => ({
-    padding: "5px 12px", borderRadius: 20, fontSize: "0.78rem",
-    cursor: "pointer", fontWeight: 600, transition: "all 0.15s",
+    padding: "5px 12px",
+    borderRadius: 20,
+    fontSize: "0.78rem",
+    cursor: "pointer",
+    fontWeight: 600,
+    transition: "all 0.15s",
     border: `2px solid ${seleccionado ? color : "#e5e7eb"}`,
     background: seleccionado ? `${color}14` : "white",
     color: seleccionado ? color : "#6b7280",
   });
 
   return (
-    <div style={{
-      minHeight: "100vh", background: "#f5f5f5",
-      fontFamily: "'Segoe UI', sans-serif", padding: "32px 20px",
-    }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#f5f5f5",
+        fontFamily: "'Segoe UI', sans-serif",
+        padding: "32px 20px",
+      }}
+    >
       <div style={{ maxWidth: 700, margin: "0 auto" }}>
-
         <h2 style={{ fontWeight: 800, color: "#0c0c2c", marginBottom: 6 }}>
-          <i className="bi bi-cart3 me-2" style={{ color: "#ff6a00" }} />
+          <i
+            className="bi bi-cart3 me-2"
+            style={{ color: "#ff6a00" }}
+          />
           Tu Carrito
         </h2>
+
         <p style={{ color: "#6b7280", fontSize: "0.9rem", marginBottom: 28 }}>
           Revisa y personaliza tus platillos antes de confirmar
         </p>
 
         {error && (
           <Alert variant="danger" style={{ borderRadius: 10 }}>
-            <i className="bi bi-exclamation-circle me-2" />{error}
+            <i className="bi bi-exclamation-circle me-2" />
+            {error}
           </Alert>
         )}
 
-        {/* Vacío */}
         {carrito.length === 0 ? (
-          <div style={{
-            background: "white", borderRadius: 16, padding: "60px 24px",
-            textAlign: "center", boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-          }}>
-            <i className="bi bi-cart-x" style={{ fontSize: "3.5rem", color: "#d1d5db" }} />
-            <p style={{ color: "#9ca3af", marginTop: 16, fontSize: "1rem" }}>Tu carrito está vacío</p>
-            <button
-              onClick={() => navegar("/menu")}
+          <div
+            style={{
+              background: "white",
+              borderRadius: 16,
+              padding: "60px 24px",
+              textAlign: "center",
+              boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+            }}
+          >
+            <i
+              className="bi bi-cart-x"
+              style={{ fontSize: "3.5rem", color: "#d1d5db" }}
+            />
+            <p
               style={{
-                marginTop: 12, background: "#ff6a00", color: "white",
-                border: "none", borderRadius: 10, padding: "10px 24px",
-                fontWeight: 700, cursor: "pointer", fontSize: "0.9rem",
+                color: "#9ca3af",
+                marginTop: 16,
+                fontSize: "1rem",
+              }}
+            >
+              Tu carrito está vacío
+            </p>
+
+            <button
+              onClick={() => navegar(idMesa ? `/menu/${idMesa}` : "/menu")}
+              style={{
+                marginTop: 12,
+                background: "#ff6a00",
+                color: "white",
+                border: "none",
+                borderRadius: 10,
+                padding: "10px 24px",
+                fontWeight: 700,
+                cursor: "pointer",
+                fontSize: "0.9rem",
               }}
             >
               Ver Menú
@@ -254,172 +321,340 @@ const Carrito = () => {
           </div>
         ) : (
           <>
-            {/* Lista items */}
-            <div style={{
-              background: "white", borderRadius: 16,
-              boxShadow: "0 2px 12px rgba(0,0,0,0.06)", marginBottom: 20, overflow: "hidden",
-            }}>
+            <div
+              style={{
+                background: "white",
+                borderRadius: 16,
+                boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+                marginBottom: 20,
+                overflow: "hidden",
+              }}
+            >
               {carrito.map((item, i) => {
-                const categoriaLower = (item.categoriaNombre || "").toLowerCase();
-                const aceptaExtras = !SIN_COMPLEMENTOS.includes(categoriaLower);
+                const categoriaLower = (
+                  item.categoriaNombre || ""
+                ).toLowerCase();
+
+                const aceptaExtras =
+                  !SIN_COMPLEMENTOS.includes(categoriaLower);
+
                 const aceptaSalsas = CON_SALSAS.includes(categoriaLower);
+
                 const expandido = itemExpandido === i;
 
                 return (
-                  <div key={i} style={{ borderBottom: i < carrito.length - 1 ? "1px solid #f3f4f6" : "none" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px" }}>
-
-                      {/* Imagen */}
-                      <div style={{
-                        width: 50, height: 50, borderRadius: 10,
-                        overflow: "hidden", flexShrink: 0, background: "#f3f4f6",
-                      }}>
+                  <div
+                    key={i}
+                    style={{
+                      borderBottom:
+                        i < carrito.length - 1
+                          ? "1px solid #f3f4f6"
+                          : "none",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "14px 16px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 50,
+                          height: 50,
+                          borderRadius: 10,
+                          overflow: "hidden",
+                          flexShrink: 0,
+                          background: "#f3f4f6",
+                        }}
+                      >
                         {item.url_imagen ? (
-                          <img src={item.url_imagen} alt={item.nombre_platillo}
-                            style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          <img
+                            src={item.url_imagen}
+                            alt={item.nombre_platillo}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                            }}
+                          />
                         ) : (
-                          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <div
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
                             <i className="bi bi-image text-muted" />
                           </div>
                         )}
                       </div>
 
-                      {/* Info */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ 
-                          fontWeight: 700, 
-                          fontSize: "0.92rem", 
-                          color: "#0c0c2c",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap"
-                        }}>
-                          <span title={item.nombre_platillo} style={{ display: "block" }}>
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            fontSize: "0.92rem",
+                            color: "#0c0c2c",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          <span
+                            title={item.nombre_platillo}
+                            style={{ display: "block" }}
+                          >
                             {item.nombre_platillo}
                           </span>
                         </div>
+
                         {item.extraSeleccionado && (
                           <div style={{ fontSize: "0.7rem", color: "#ff6a00" }}>
                             + {item.extraSeleccionado.descripcion}
                           </div>
                         )}
+
                         {item.salsaSeleccionada && (
                           <div style={{ fontSize: "0.7rem", color: "#ef4444" }}>
                             + {item.salsaSeleccionada.descripcion}
                           </div>
                         )}
+
                         {(aceptaExtras || aceptaSalsas) && (
                           <button
-                            onClick={() => setItemExpandido(expandido ? null : i)}
+                            onClick={() =>
+                              setItemExpandido(expandido ? null : i)
+                            }
                             style={{
-                              background: "none", border: "none", padding: 0,
-                              fontSize: "0.7rem", color: "#6b7280",
-                              cursor: "pointer", textDecoration: "underline", marginTop: 2,
+                              background: "none",
+                              border: "none",
+                              padding: 0,
+                              fontSize: "0.7rem",
+                              color: "#6b7280",
+                              cursor: "pointer",
+                              textDecoration: "underline",
+                              marginTop: 2,
                             }}
                           >
-                            {expandido ? "Ocultar opciones" : "Cambiar extras / salsas"}
+                            {expandido
+                              ? "Ocultar opciones"
+                              : "Cambiar extras / salsas"}
                           </button>
                         )}
                       </div>
 
-                      {/* Cantidad */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 5,
+                        }}
+                      >
                         <button
                           onClick={() => disminuirCantidad(i)}
                           style={{
-                            width: 28, height: 28, borderRadius: "50%",
-                            border: "2px solid #e5e7eb", background: "white",
-                            cursor: "pointer", fontWeight: 700, fontSize: "1rem",
-                            display: "flex", alignItems: "center", justifyContent: "center",
+                            width: 28,
+                            height: 28,
+                            borderRadius: "50%",
+                            border: "2px solid #e5e7eb",
+                            background: "white",
+                            cursor: "pointer",
+                            fontWeight: 700,
+                            fontSize: "1rem",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
                           }}
-                        >−</button>
-                        <span style={{ fontWeight: 700, minWidth: 20, textAlign: "center", fontSize: "0.9rem" }}>
+                        >
+                          −
+                        </button>
+
+                        <span
+                          style={{
+                            fontWeight: 700,
+                            minWidth: 20,
+                            textAlign: "center",
+                            fontSize: "0.9rem",
+                          }}
+                        >
                           {item.cantidad}
                         </span>
+
                         <button
                           onClick={() => aumentarCantidad(i)}
                           style={{
-                            width: 28, height: 28, borderRadius: "50%",
-                            border: "2px solid #ff6a00", background: "#ff6a00",
-                            cursor: "pointer", fontWeight: 700, fontSize: "1rem",
-                            display: "flex", alignItems: "center", justifyContent: "center",
+                            width: 28,
+                            height: 28,
+                            borderRadius: "50%",
+                            border: "2px solid #ff6a00",
+                            background: "#ff6a00",
+                            cursor: "pointer",
+                            fontWeight: 700,
+                            fontSize: "1rem",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
                             color: "white",
                           }}
-                        >+</button>
+                        >
+                          +
+                        </button>
                       </div>
 
-                      {/* Subtotal */}
                       <div style={{ minWidth: 65, textAlign: "right" }}>
-                        <div style={{ fontWeight: 800, color: "#ff6a00", fontSize: "0.85rem" }}>
+                        <div
+                          style={{
+                            fontWeight: 800,
+                            color: "#ff6a00",
+                            fontSize: "0.85rem",
+                          }}
+                        >
                           C${calcularSubtotalItem(item).toFixed(2)}
                         </div>
                       </div>
 
-                      {/* Eliminar */}
                       <button
                         onClick={() => eliminarDelCarrito(i)}
-                        style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: "1rem", padding: "4px" }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "#ef4444",
+                          cursor: "pointer",
+                          fontSize: "1rem",
+                          padding: "4px",
+                        }}
                       >
                         <i className="bi bi-trash" />
                       </button>
                     </div>
 
-                    {/* Panel expandible extras/salsas */}
                     {expandido && (
-                      <div style={{ padding: "0 16px 16px", background: "#fafafa" }}>
-
-                        {/* Extras */}
+                      <div
+                        style={{
+                          padding: "0 16px 16px",
+                          background: "#fafafa",
+                        }}
+                      >
                         {aceptaExtras && todosExtras.length > 0 && (
                           <div style={{ marginBottom: 12 }}>
-                            <p style={{ fontWeight: 700, fontSize: "0.82rem", color: "#374151", marginBottom: 6 }}>
-                              <i className="bi bi-plus-circle me-1" style={{ color: "#ff6a00" }} />
+                            <p
+                              style={{
+                                fontWeight: 700,
+                                fontSize: "0.82rem",
+                                color: "#374151",
+                                marginBottom: 6,
+                              }}
+                            >
+                              <i
+                                className="bi bi-plus-circle me-1"
+                                style={{ color: "#ff6a00" }}
+                              />
                               Extras
                             </p>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+
+                            <div
+                              style={{
+                                display: "flex",
+                                flexWrap: "wrap",
+                                gap: 6,
+                              }}
+                            >
                               <div
                                 onClick={() => actualizarExtra(i, null)}
-                                style={estiloChipPill(!item.extraSeleccionado, "#ff6a00")}
+                                style={estiloChipPill(
+                                  !item.extraSeleccionado,
+                                  "#ff6a00"
+                                )}
                               >
                                 Ninguno
                               </div>
-                              {todosExtras.map(extra => (
+
+                              {todosExtras.map((extra) => (
                                 <div
                                   key={extra.id_extra}
-                                  onClick={() => actualizarExtra(i,
-                                    item.extraSeleccionado?.id_extra === extra.id_extra ? null : extra
+                                  onClick={() =>
+                                    actualizarExtra(
+                                      i,
+                                      item.extraSeleccionado?.id_extra ===
+                                        extra.id_extra
+                                        ? null
+                                        : extra
+                                    )
+                                  }
+                                  style={estiloChipPill(
+                                    item.extraSeleccionado?.id_extra ===
+                                      extra.id_extra,
+                                    "#ff6a00"
                                   )}
-                                  style={estiloChipPill(item.extraSeleccionado?.id_extra === extra.id_extra, "#ff6a00")}
                                 >
-                                  {extra.descripcion} (+C${parseFloat(extra.precio || 0).toFixed(2)})
+                                  {extra.descripcion} (+C$
+                                  {parseFloat(extra.precio || 0).toFixed(2)})
                                 </div>
                               ))}
                             </div>
                           </div>
                         )}
 
-                        {/* Salsas */}
                         {aceptaSalsas && todasSalsas.length > 0 && (
                           <div>
-                            <p style={{ fontWeight: 700, fontSize: "0.82rem", color: "#374151", marginBottom: 6 }}>
-                              <i className="bi bi-droplet me-1" style={{ color: "#ef4444" }} />
+                            <p
+                              style={{
+                                fontWeight: 700,
+                                fontSize: "0.82rem",
+                                color: "#374151",
+                                marginBottom: 6,
+                              }}
+                            >
+                              <i
+                                className="bi bi-droplet me-1"
+                                style={{ color: "#ef4444" }}
+                              />
                               Salsas
                             </p>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+
+                            <div
+                              style={{
+                                display: "flex",
+                                flexWrap: "wrap",
+                                gap: 6,
+                              }}
+                            >
                               <div
                                 onClick={() => actualizarSalsa(i, null)}
-                                style={estiloChipPill(!item.salsaSeleccionada, "#ef4444")}
+                                style={estiloChipPill(
+                                  !item.salsaSeleccionada,
+                                  "#ef4444"
+                                )}
                               >
                                 Ninguna
                               </div>
-                              {todasSalsas.map(salsa => (
+
+                              {todasSalsas.map((salsa) => (
                                 <div
                                   key={salsa.id_salsa}
-                                  onClick={() => actualizarSalsa(i,
-                                    item.salsaSeleccionada?.id_salsa === salsa.id_salsa ? null : salsa
+                                  onClick={() =>
+                                    actualizarSalsa(
+                                      i,
+                                      item.salsaSeleccionada?.id_salsa ===
+                                        salsa.id_salsa
+                                        ? null
+                                        : salsa
+                                    )
+                                  }
+                                  style={estiloChipPill(
+                                    item.salsaSeleccionada?.id_salsa ===
+                                      salsa.id_salsa,
+                                    "#ef4444"
                                   )}
-                                  style={estiloChipPill(item.salsaSeleccionada?.id_salsa === salsa.id_salsa, "#ef4444")}
                                 >
-                                  {salsa.descripcion} (+C${parseFloat(salsa.precio || 0).toFixed(2)})
+                                  {salsa.descripcion} (+C$
+                                  {parseFloat(salsa.precio || 0).toFixed(2)})
                                 </div>
                               ))}
                             </div>
@@ -432,36 +667,69 @@ const Carrito = () => {
               })}
             </div>
 
-            {/* Tipo de pago */}
-            <div style={{
-              background: "white", borderRadius: 16, padding: "20px 24px",
-              boxShadow: "0 2px 12px rgba(0,0,0,0.06)", marginBottom: 20,
-            }}>
-              <h5 style={{ fontWeight: 700, color: "#0c0c2c", marginBottom: 16 }}>
-                <i className="bi bi-credit-card me-2" style={{ color: "#ff6a00" }} />
+            <div
+              style={{
+                background: "white",
+                borderRadius: 16,
+                padding: "20px 24px",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+                marginBottom: 20,
+              }}
+            >
+              <h5
+                style={{
+                  fontWeight: 700,
+                  color: "#0c0c2c",
+                  marginBottom: 16,
+                }}
+              >
+                <i
+                  className="bi bi-credit-card me-2"
+                  style={{ color: "#ff6a00" }}
+                />
                 Tipo de pago
               </h5>
+
               <div style={{ display: "flex", gap: 12 }}>
-                {/* ✅ MODIFICADO: Usar opcionesPago en lugar del array fijo */}
-                {opcionesPago.map(tipo => (
+                {opcionesPago.map((tipo) => (
                   <div
                     key={tipo}
                     onClick={() => setTipoPago(tipo)}
                     style={{
-                      flex: 1, padding: "14px 16px", borderRadius: 12, cursor: "pointer",
-                      border: `2px solid ${tipoPago === tipo ? "#ff6a00" : "#e5e7eb"}`,
-                      background: tipoPago === tipo ? "rgba(255,106,0,0.05)" : "white",
-                      textAlign: "center", transition: "all 0.2s",
+                      flex: 1,
+                      padding: "14px 16px",
+                      borderRadius: 12,
+                      cursor: "pointer",
+                      border: `2px solid ${
+                        tipoPago === tipo ? "#ff6a00" : "#e5e7eb"
+                      }`,
+                      background:
+                        tipoPago === tipo
+                          ? "rgba(255,106,0,0.05)"
+                          : "white",
+                      textAlign: "center",
+                      transition: "all 0.2s",
                     }}
                   >
                     <i
-                      className={`bi ${tipo === "Efectivo" ? "bi-cash" : "bi-credit-card"}`}
+                      className={`bi ${
+                        tipo === "Efectivo" ? "bi-cash" : "bi-credit-card"
+                      }`}
                       style={{
-                        fontSize: "1.5rem", display: "block", marginBottom: 6,
+                        fontSize: "1.5rem",
+                        display: "block",
+                        marginBottom: 6,
                         color: tipoPago === tipo ? "#ff6a00" : "#9ca3af",
                       }}
                     />
-                    <span style={{ fontWeight: 700, fontSize: "0.9rem", color: tipoPago === tipo ? "#ff6a00" : "#374151" }}>
+
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        fontSize: "0.9rem",
+                        color: tipoPago === tipo ? "#ff6a00" : "#374151",
+                      }}
+                    >
                       {tipo}
                     </span>
                   </div>
@@ -469,61 +737,121 @@ const Carrito = () => {
               </div>
             </div>
 
-            {/* Resumen */}
-            <div style={{
-              background: "white", borderRadius: 16, padding: "20px 24px",
-              boxShadow: "0 2px 12px rgba(0,0,0,0.06)", marginBottom: 20,
-            }}>
-              <h5 style={{ fontWeight: 700, color: "#0c0c2c", marginBottom: 14 }}>
-                <i className="bi bi-receipt me-2" style={{ color: "#ff6a00" }} />
+            <div
+              style={{
+                background: "white",
+                borderRadius: 16,
+                padding: "20px 24px",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+                marginBottom: 20,
+              }}
+            >
+              <h5
+                style={{
+                  fontWeight: 700,
+                  color: "#0c0c2c",
+                  marginBottom: 14,
+                }}
+              >
+                <i
+                  className="bi bi-receipt me-2"
+                  style={{ color: "#ff6a00" }}
+                />
                 Resumen
               </h5>
-              {/* Mostrar mesa si fue escaneada */}
+
               {mesaNombre && (
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                  <span style={{ color: "#6b7280", fontSize: "0.9rem" }}>Mesa</span>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginBottom: 8,
+                  }}
+                >
+                  <span style={{ color: "#6b7280", fontSize: "0.9rem" }}>
+                    Mesa
+                  </span>
                   <span style={{ fontWeight: 600 }}>{mesaNombre}</span>
                 </div>
               )}
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ color: "#6b7280", fontSize: "0.9rem" }}>Subtotal</span>
-                <span style={{ fontWeight: 600 }}>C${totalCarrito.toFixed(2)}</span>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: 8,
+                }}
+              >
+                <span style={{ color: "#6b7280", fontSize: "0.9rem" }}>
+                  Subtotal
+                </span>
+                <span style={{ fontWeight: 600 }}>
+                  C${totalCarrito.toFixed(2)}
+                </span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ color: "#6b7280", fontSize: "0.9rem" }}>Método de pago</span>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: 8,
+                }}
+              >
+                <span style={{ color: "#6b7280", fontSize: "0.9rem" }}>
+                  Método de pago
+                </span>
                 <span style={{ fontWeight: 600 }}>{tipoPago}</span>
               </div>
+
               <hr style={{ margin: "14px 0" }} />
+
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ fontWeight: 800, fontSize: "1rem" }}>Total</span>
-                <span style={{ fontWeight: 800, fontSize: "1.2rem", color: "#ff6a00" }}>
+                <span style={{ fontWeight: 800, fontSize: "1rem" }}>
+                  Total
+                </span>
+                <span
+                  style={{
+                    fontWeight: 800,
+                    fontSize: "1.2rem",
+                    color: "#ff6a00",
+                  }}
+                >
                   C${totalCarrito.toFixed(2)}
                 </span>
               </div>
             </div>
 
-            {/* Botón pago */}
             <button
-              onClick={handleProcederPago} 
+              onClick={handleProcederPago}
               disabled={procesando}
               style={{
-                width: "100%", padding: "15px",
+                width: "100%",
+                padding: "15px",
                 background: procesando ? "#9ca3af" : "#ff6a00",
-                color: "white", border: "none", borderRadius: 14,
-                fontWeight: 800, fontSize: "1rem",
+                color: "white",
+                border: "none",
+                borderRadius: 14,
+                fontWeight: 800,
+                fontSize: "1rem",
                 cursor: procesando ? "not-allowed" : "pointer",
                 boxShadow: "0 4px 14px rgba(255,106,0,0.35)",
               }}
             >
-              {procesando
-                ? <><i className="bi bi-hourglass-split me-2" />Procesando...</>
-                : <><i className="bi bi-check-circle me-2" />Proceder al Pago — C${totalCarrito.toFixed(2)}</>
-              }
+              {procesando ? (
+                <>
+                  <i className="bi bi-hourglass-split me-2" />
+                  Procesando...
+                </>
+              ) : (
+                <>
+                  <i className="bi bi-check-circle me-2" />
+                  Proceder al Pago — C${totalCarrito.toFixed(2)}
+                </>
+              )}
             </button>
           </>
         )}
 
-        {/* Modal de pago con tarjeta */}
         <FormularioTarjeta
           show={mostrarModalTarjeta}
           onHide={() => setMostrarModalTarjeta(false)}
