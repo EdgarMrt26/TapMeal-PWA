@@ -24,9 +24,11 @@ const Menu = () => {
 
   const queryParams = new URLSearchParams(location.search);
   const mesaQuery = queryParams.get("mesa");
-  const mesaStorage = localStorage.getItem("mesa_actual");
 
-  const mesaActual = idMesa || mesaQuery || mesaStorage || null;
+  // IMPORTANTE:
+  // No usamos localStorage aquí para decidir la mesa,
+  // porque si no, en celular se queda pegada una mesa vieja.
+  const mesaActual = idMesa || mesaQuery || null;
 
   useEffect(() => {
     if (mesaActual) {
@@ -59,6 +61,8 @@ const Menu = () => {
         cargarNombreMesa();
       }
     } else {
+      // Si entra normal a /menu, debe ser pedido en línea.
+      // Aquí limpiamos cualquier mesa vieja guardada en el celular.
       localStorage.removeItem("mesa_actual");
       localStorage.removeItem("mesa_nombre");
       localStorage.setItem("modo_pedido", "en_linea");
@@ -243,6 +247,7 @@ const Menu = () => {
             }}
           >
             <i className="bi bi-search" style={{ color: "#9ca3af" }} />
+
             <input
               type="text"
               placeholder="Buscar platillos..."
@@ -279,8 +284,7 @@ const Menu = () => {
                 cursor: "pointer",
                 background:
                   categoriaSeleccionada === "todas" ? "#ff6a00" : "white",
-                color:
-                  categoriaSeleccionada === "todas" ? "white" : "#374151",
+                color: categoriaSeleccionada === "todas" ? "white" : "#374151",
                 boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
               }}
             >
