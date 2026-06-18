@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom"; // ← NUEVO useSearchParams
+import { useNavigate, useSearchParams } from "react-router-dom";
 import FormularioLogin from "../components/login/FormularioLogin";
 import { supabase } from "../database/supabaseconfig";
 import Logo from "../assets/Logo.png";
@@ -9,21 +9,41 @@ const Login = () => {
   const [contrasena, setContrasena] = useState("");
   const [error, setError] = useState(null);
   const navegar = useNavigate();
-  const [searchParams] = useSearchParams(); // ← NUEVO
+  const [searchParams] = useSearchParams();
+
+  const obtenerMesaDestino = () => {
+    const mesaQuery = searchParams.get("mesa");
+    const redirect = searchParams.get("redirect");
+
+    let mesaDesdeRedirect = null;
+
+    if (redirect) {
+      const match = decodeURIComponent(redirect).match(/\/menu\/(\d+)/);
+      if (match) mesaDesdeRedirect = match[1];
+    }
+
+    return mesaQuery || mesaDesdeRedirect || localStorage.getItem("mesa_actual");
+  };
 
   const redirigirSegunRol = (rol) => {
-    const destino = searchParams.get("redirect"); // ← NUEVO
+    const mesaDestino = obtenerMesaDestino();
+
+    if (mesaDestino) {
+      localStorage.setItem("mesa_actual", mesaDestino);
+      localStorage.setItem("modo_pedido", "en_local");
+    }
+
     if (rol === "admin") {
       navegar("/categorias");
-    } else if (rol === "cliente") {
-      if (destino) {             // ← NUEVO
-        navegar(destino);        // ← NUEVO
-      } else {
-        navegar("/menu");
-      }
-    } else {
-      navegar("/menu");
+      return;
     }
+
+    if (mesaDestino) {
+      navegar(`/menu/${mesaDestino}`);
+      return;
+    }
+
+    navegar("/menu");
   };
 
   const iniciarSesion = async () => {
@@ -50,7 +70,6 @@ const Login = () => {
         localStorage.setItem("usuario-supabase", usuario.trim());
         redirigirSegunRol(rol);
       }
-
     } catch (err) {
       setError("Error al conectar con el servidor.");
       console.error("Error en la solicitud:", err);
@@ -65,8 +84,11 @@ const Login = () => {
         redirigirSegunRol(rol);
       }
     };
+
     verificarSesion();
   }, []);
+
+  const mesaDestino = obtenerMesaDestino();
 
   return (
     <div style={{
@@ -76,8 +98,6 @@ const Login = () => {
       display: "flex",
       flexDirection: "column",
     }}>
-
-      {/* NAVBAR */}
       <nav style={{
         background: "white",
         padding: "0 28px",
@@ -95,13 +115,13 @@ const Login = () => {
           <img src={Logo} alt="Logo TapMeal" style={{ height: 34, objectFit: "contain" }} />
           <span style={{ fontWeight: 800, fontSize: "1.3rem", color: "#0c0c2c" }}>TapMeal</span>
         </div>
+
         <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#0c0c2c", fontSize: "0.88rem", fontWeight: 600 }}>
           <i className="bi bi-person-fill" />
           <span>Iniciar Sesión</span>
         </div>
       </nav>
 
-      {/* FORMULARIO CENTRADO */}
       <div style={{
         flex: 1,
         display: "flex",
@@ -122,7 +142,7 @@ const Login = () => {
           <p style={{ textAlign: "center", marginTop: 20, fontSize: "0.88rem", color: "#6b7280" }}>
             ¿No tienes cuenta?{" "}
             <span
-              onClick={() => navegar("/registro")}
+              onClick={() => navegar(mesaDestino ? `/registro?mesa=${mesaDestino}` : "/registro")}
               style={{ color: "#ff6a00", fontWeight: 700, cursor: "pointer" }}
             >
               Regístrate aquí
@@ -130,7 +150,6 @@ const Login = () => {
           </p>
         </div>
       </div>
-
     </div>
   );
 };
